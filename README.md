@@ -1,10 +1,47 @@
-# rentify-infra
+# shelf-shack-infra
 
-Infrastructure-as-code for provisioning Rentify's AWS foundation (networking, ECR, ECS/Fargate, and supporting resources).
+Infrastructure-as-code for provisioning Shelf Shack's AWS foundation (networking, ECR, ECS/Fargate, and supporting resources).
 
 ## Layout
-- `modules/` – reusable Terraform modules for networking, container registry, and ECS/Fargate service.
-- `envs/<env>/` – environment specific composition of the modules; currently `dev` is scaffolded and can be duplicated for staging/prod.
+
+```
+shelf-shack-infra/
+├── README.md                    # Main documentation (kept at root)
+├── docs/                        # All documentation files
+│   ├── DOMAIN_SETUP_GUIDE.md
+│   ├── MIGRATION_SUMMARY.md
+│   ├── OPENSEARCH_CONTAINER_SETUP.md
+│   ├── OPENSEARCH_DISABLED.md
+│   ├── OPENSEARCH_IAM_POLICY.md
+│   ├── QUICK_FIX_OPENSEARCH.md
+│   └── SUBDOMAINS_SUMMARY.md
+├── envs/                        # Environment configurations
+│   ├── dev/
+│   └── prod/
+├── modules/                     # Reusable Terraform modules
+│   ├── bastion_host/
+│   ├── ecr_repository/
+│   ├── ecs_service/
+│   ├── networking/
+│   ├── opensearch/
+│   ├── opensearch_container/
+│   ├── opensearch_dashboards/
+│   ├── opensearch_nlb/
+│   └── rds_postgres/
+├── policies/                    # IAM policy templates
+│   ├── opensearch-iam-policy-terraform.tf
+│   └── opensearch-task-role-policy.json
+└── scripts/                     # Utility scripts
+    └── get_opensearch_endpoint.sh
+```
+
+### Directory Descriptions
+
+- `modules/` – Reusable Terraform modules for networking, container registry, and ECS/Fargate service.
+- `envs/<env>/` – Environment specific composition of the modules; currently `dev` and `prod` are scaffolded.
+- `docs/` – Documentation files including setup guides, migration summaries, and feature documentation.
+- `policies/` – IAM policy templates and examples for OpenSearch and other services.
+- `scripts/` – Utility scripts for infrastructure management.
 - `.github/workflows/` – (to be added once CI for infra is connected) automation entry points.
 
 ## Getting Started

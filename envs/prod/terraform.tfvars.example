@@ -1,0 +1,105 @@
+aws_region   = "us-east-1"
+project      = "shelfshack"
+environment  = "prod"
+
+# Production VPC CIDR (different from dev to avoid conflicts)
+vpc_cidr = "10.1.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnet_cidrs  = ["10.1.0.0/24", "10.1.1.0/24", "10.1.2.0/24"]
+private_subnet_cidrs = ["10.1.10.0/24", "10.1.11.0/24", "10.1.12.0/24"]
+enable_bastion_host  = true
+bastion_allow_ssh_cidr_blocks = []
+
+container_image_tag = "latest"
+container_port      = 8000
+desired_count       = 3  # Production: Higher availability with multiple instances
+cpu                 = 2048   # Production: More CPU for better performance
+memory              = 4096   # Production: More memory for better performance
+enable_load_balancer = true
+route53_zone_id     = null  # Set to your Route53 hosted zone ID
+route53_record_name = null
+enable_https        = true  # Production: Enable HTTPS
+certificate_arn     = null  # Set to your ACM certificate ARN
+domain_name         = null  # Set to your domain name (e.g., "shelfshack.com")
+
+app_environment = {
+  NODE_ENV = "production"
+  DB_MANAGE_COMMAND = "--create --bootstrap"
+  DB_BOOTSTRAP = "false"
+}
+
+force_new_deployment = false  # Production: Don't force deployment on every apply
+
+app_secrets = [
+  {
+    name       = "DATABASE_URL"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:shelfshack/prod/db-url:DATABASE_URL::"
+  },
+  {
+    name       = "GOOGLE_CLIENT_ID"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:google_api_client_id-xxxxx:GOOGLE_CLIENT_ID::"
+  },
+  {
+    name       = "SMTP_SERVER"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:smtp_secret-xxxxx:SMTP_SERVER::"
+  },
+  {
+    name       = "SMTP_PORT"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:smtp_secret-xxxxx:SMTP_PORT::"
+  },
+  {
+    name       = "SMTP_USERNAME"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:smtp_secret-xxxxx:SMTP_USERNAME::"
+  },
+  {
+    name       = "SMTP_PASSWORD"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:smtp_secret-xxxxx:SMTP_PASSWORD::"
+  },
+  {
+    name       = "EMAILS_FROM_EMAIL"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:smtp_secret-xxxxx:EMAILS_FROM_EMAIL::"
+  },
+  {
+    name       = "FRONTEND_BASE_URL"
+    value_from = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:smtp_secret-xxxxx:FRONTEND_BASE_URL::"
+  }
+]
+
+# RDS inputs (do not commit real passwords; set TF_VAR_db_master_password via secrets/provider)
+db_master_username  = "dbadmin_shelfshack"
+# db_master_password is intentionally unset; provide it via TF_VAR_DB_MASTER_PASSWORD or db_master_password_secret_arn
+# Recommended: Use AWS Secrets Manager for production
+# db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:shelfshack/prod/db-password-xxxxx"
+db_allocated_storage = 100  # Production: More storage
+db_engine_version    = "17.6"
+db_multi_az          = true  # Production: Enable multi-AZ for high availability
+db_backup_retention_days = 30  # Production: Retain backups for 30 days
+db_skip_final_snapshot   = false  # Production: Create final snapshot before deletion
+db_deletion_protection   = true  # Production: Enable deletion protection
+db_apply_immediately     = false  # Production: Apply during maintenance window
+db_publicly_accessible   = false
+
+# OpenSearch configuration (if needed)
+opensearch_domain_name = "shelfshack-search-prod"
+opensearch_engine_version = "OpenSearch_2.11"
+opensearch_instance_type = "t3.medium.search"  # Production: Larger instance
+opensearch_instance_count = 2  # Production: Multiple instances for availability
+# TODO: Replace ACCOUNT_ID with your AWS account ID
+opensearch_iam_role_arns = [
+  "arn:aws:iam::ACCOUNT_ID:role/ShelfShackDeployRole"
+]
+# Optional: Add your IP for Kibana access (leave empty if not needed)
+opensearch_allowed_cidr_blocks = []
+opensearch_ebs_volume_size = 50  # Production: Larger volume
+opensearch_ebs_volume_type = "gp3"
+opensearch_enable_cloudwatch_logs = true  # Production: Enable logging
+opensearch_log_retention_in_days = 30  # Production: Longer retention
+opensearch_create_service_linked_role = false  # Set to false if role already exists
+
+# Log retention
+log_retention_in_days = 90  # Production: Retain logs for 90 days
+
+# Deployment settings
+deployment_maximum_percent = 200
+deployment_minimum_healthy_percent = 50  # Production: Allow rolling updates
+
