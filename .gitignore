@@ -9,3 +9,6 @@ override.tf.json
 *.override.tf.json
 *.tfvars.json
 .DS_Store
+# Environment variables (sensitive)
+.env
+envs/**/.env

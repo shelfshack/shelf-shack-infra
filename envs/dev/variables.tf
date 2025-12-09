@@ -284,6 +284,12 @@ variable "DB_MASTER_PASSWORD" {
   default     = null
 }
 
+variable "db_master_password_secret_arn" {
+  description = "Optional ARN of AWS Secrets Manager secret containing the RDS master password. If provided, this takes precedence over environment variables. Secret should contain a key named 'password' or be a plain text secret."
+  type        = string
+  default     = null
+}
+
 variable "db_allocated_storage" {
   description = "Allocated storage (GB)."
   type        = number

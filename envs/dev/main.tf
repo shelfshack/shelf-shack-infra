@@ -13,6 +13,12 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Data source to fetch DB password from AWS Secrets Manager (optional)
+data "aws_secretsmanager_secret_version" "db_password" {
+  count     = var.db_master_password_secret_arn != null ? 1 : 0
+  secret_id = var.db_master_password_secret_arn
+}
+
 locals {
   name = "${var.project}-${var.environment}"
   tags = merge(
@@ -31,7 +37,12 @@ locals {
     }
   ]
 
-  db_master_password = coalesce(var.db_master_password, var.DB_MASTER_PASSWORD)
+  # Priority: Secrets Manager > var.db_master_password > var.DB_MASTER_PASSWORD
+  db_master_password = var.db_master_password_secret_arn != null ? (
+    try(jsondecode(data.aws_secretsmanager_secret_version.db_password[0].secret_string)["password"], data.aws_secretsmanager_secret_version.db_password[0].secret_string)
+  ) : (
+    var.db_master_password != null ? var.db_master_password : var.DB_MASTER_PASSWORD
+  )
 }
 
 module "networking" {
