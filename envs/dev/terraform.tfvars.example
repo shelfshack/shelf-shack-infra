@@ -1,0 +1,61 @@
+aws_region   = "us-east-1"
+project      = "rentify"
+environment  = "dev"
+
+availability_zones = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs  = ["10.0.0.0/24", "10.0.1.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+enable_bastion_host  = false
+bastion_allow_ssh_cidr_blocks = []
+
+container_image_tag = "latest"
+container_port      = 8000
+desired_count       = 2
+enable_load_balancer = true
+# disable the ALB temporarily (e.g., free-tier accounts) by setting enable_load_balancer = false
+route53_zone_id     = null
+route53_record_name = null
+
+app_environment = {
+  NODE_ENV = "production"
+  DB_MANAGE_COMMAND = "--create --bootstrap"
+  DB_BOOTSTRAP = "false"
+}
+
+force_new_deployment = true
+
+app_secrets = [
+  {
+    name       = "DATABASE_URL"
+    value_from = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rentify/dev/db-url:DATABASE_URL::"
+  }
+]
+
+# RDS inputs (do not commit real passwords; set TF_VAR_db_master_password via secrets/provider)
+db_master_username       = "rentify"
+# db_master_password is intentionally unset; provide it via TF_VAR_DB_MASTER_PASSWORD in CI/secrets.
+db_allocated_storage     = 20
+db_engine_version        = "17.6"
+db_multi_az              = false
+db_backup_retention_days = 0
+db_skip_final_snapshot   = true
+db_deletion_protection   = false
+db_apply_immediately     = true
+db_publicly_accessible   = false
+
+# OpenSearch configuration
+opensearch_domain_name = "shelfshack-search"
+opensearch_engine_version = "OpenSearch_2.11"
+opensearch_instance_type = "t3.small.search"
+opensearch_instance_count = 1  # Use 1 for dev/free tier, 2+ for production
+# TODO: Replace ACCOUNT_ID with your AWS account ID
+opensearch_iam_role_arns = [
+  "arn:aws:iam::ACCOUNT_ID:role/RentDeployRole"
+]
+# Optional: Add your IP address for Kibana/Dashboards access (e.g., "YOUR_IP/32")
+opensearch_allowed_cidr_blocks = []
+opensearch_ebs_volume_size = 10
+opensearch_ebs_volume_type = "gp3"
+opensearch_enable_cloudwatch_logs = false
+opensearch_log_retention_in_days = 7
+opensearch_create_service_linked_role = true  # Set to false if role already exists in your account

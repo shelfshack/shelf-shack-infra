@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "es:ESHttpGet",
+        "es:ESHttpPost",
+        "es:ESHttpPut",
+        "es:ESHttpDelete"
+      ],
+      "Resource": "arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "es:*"
+      ],
+      "NotResource": "arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"
+    }
+  ]
+}
+
