@@ -1,11 +1,135 @@
-# rentify-infra
+# shelf-shack-infra
 
-Infrastructure-as-code for provisioning Rentify's AWS foundation (networking, ECR, ECS/Fargate, and supporting resources).
+Infrastructure-as-code for provisioning Shelf Shack's AWS foundation (networking, ECR, ECS/Fargate, and supporting resources).
 
 ## Layout
-- `modules/` – reusable Terraform modules for networking, container registry, and ECS/Fargate service.
-- `envs/<env>/` – environment specific composition of the modules; currently `dev` is scaffolded and can be duplicated for staging/prod.
+
+```
+shelf-shack-infra/
+├── README.md                    # Main documentation (kept at root)
+├── docs/                        # All documentation files
+│   ├── DOMAIN_SETUP_GUIDE.md
+│   ├── MIGRATION_SUMMARY.md
+│   ├── OPENSEARCH_CONTAINER_SETUP.md
+│   ├── OPENSEARCH_DISABLED.md
+│   ├── OPENSEARCH_IAM_POLICY.md
+│   ├── QUICK_FIX_OPENSEARCH.md
+│   └── SUBDOMAINS_SUMMARY.md
+├── envs/                        # Environment configurations
+│   ├── dev/
+│   └── prod/
+├── modules/                     # Reusable Terraform modules
+│   ├── bastion_host/
+│   ├── ecr_repository/
+│   ├── ecs_service/
+│   ├── networking/
+│   ├── opensearch/
+│   ├── opensearch_container/
+│   ├── opensearch_dashboards/
+│   ├── opensearch_nlb/
+│   └── rds_postgres/
+├── policies/                    # IAM policy templates
+│   ├── opensearch-iam-policy-terraform.tf
+│   └── opensearch-task-role-policy.json
+└── scripts/                     # Utility scripts
+    └── get_opensearch_endpoint.sh
+```
+
+### Directory Descriptions
+
+- `modules/` – Reusable Terraform modules for networking, container registry, and ECS/Fargate service.
+- `envs/<env>/` – Environment specific composition of the modules; currently `dev` and `prod` are scaffolded.
+- `docs/` – Documentation files including setup guides, migration summaries, and feature documentation.
+- `policies/` – IAM policy templates and examples for OpenSearch and other services.
+- `scripts/` – Utility scripts for infrastructure management.
 - `.github/workflows/` – (to be added once CI for infra is connected) automation entry points.
+
+## Git Branching Strategy
+
+This project follows a Git Flow branching model with the following branches:
+
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'git0':'#2d6a4f','git1':'#e63946','git2':'#1d3557','git3':'#f77f00','git4':'#06d6a0'}}}%%
+gitGraph
+    commit id: "Initial commit"
+    branch develop
+    checkout develop
+    commit id: "Setup infrastructure"
+    
+    branch feature/networking
+    checkout feature/networking
+    commit id: "Add VPC module"
+    commit id: "Add subnets"
+    commit id: "Add security groups"
+    checkout develop
+    merge feature/networking
+    
+    checkout main
+    branch hotfix/critical-fix
+    checkout hotfix/critical-fix
+    commit id: "Fix critical issue"
+    checkout main
+    merge hotfix/critical-fix
+    checkout develop
+    merge hotfix/critical-fix
+    
+    checkout develop
+    commit id: "Continue development"
+    
+    branch feature/ecs-service
+    checkout feature/ecs-service
+    commit id: "Add ECS module"
+    commit id: "Add task definition"
+    checkout develop
+    merge feature/ecs-service
+    
+    checkout develop
+    branch release/v1.0
+    checkout release/v1.0
+    commit id: "Prepare release"
+    commit id: "Update docs"
+    commit id: "Bump version"
+    checkout main
+    merge release/v1.0 tag: "v1.0.0"
+    checkout develop
+    merge release/v1.0
+    
+    checkout develop
+    commit id: "New features"
+    
+    branch feature/rds-module
+    checkout feature/rds-module
+    commit id: "Add RDS module"
+    commit id: "Add RDS variables"
+    checkout develop
+    merge feature/rds-module
+    
+    checkout develop
+    branch release/v1.1
+    checkout release/v1.1
+    commit id: "Prepare v1.1"
+    checkout main
+    merge release/v1.1 tag: "v1.1.0"
+    checkout develop
+    merge release/v1.1
+    
+    checkout develop
+    commit id: "Continue dev work"
+```
+
+### Branch Types
+
+- **`main`** (dark green) - Production-ready code. Only accepts merges from `release` and `hotfix` branches.
+- **`develop`** (orange) - Integration branch for features. Always contains the latest development changes.
+- **`feature/*`** (light green) - New features and enhancements. Branch from `develop`, merge back to `develop`.
+- **`release/*`** (blue) - Release preparation. Branch from `develop`, merge to both `main` and `develop`.
+- **`hotfix/*`** (red) - Critical production fixes. Branch from `main`, merge to both `main` and `develop`.
+
+### Workflow
+
+1. **Feature Development**: Create `feature/feature-name` from `develop` → develop → merge back to `develop`
+2. **Release**: Create `release/vX.Y` from `develop` → prepare release → merge to `main` (tag) and `develop`
+3. **Hotfix**: Create `hotfix/issue-name` from `main` → fix → merge to `main` (tag) and `develop`
 
 ## Getting Started
 1. `cp envs/dev/backend.tf.example envs/dev/backend.tf` and update the S3 bucket/DynamoDB table used for Terraform state.
