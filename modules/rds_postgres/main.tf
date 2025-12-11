@@ -11,6 +11,12 @@ resource "aws_db_subnet_group" "this" {
   tags = merge(local.tags, {
     Name = "${var.name}-db-subnets"
   })
+
+  lifecycle {
+    # Force replacement when subnet IDs change, as AWS doesn't allow
+    # modifying the VPC of an existing DB subnet group
+    create_before_destroy = true
+  }
 }
 
 resource "aws_security_group" "this" {
