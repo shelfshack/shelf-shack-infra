@@ -167,7 +167,7 @@ If you need to force the ECS tasks into a specific subnet set regardless of the 
 ## CI/CD Integration
 - The application repository publishes a Docker image and then runs `terraform apply` here with `TF_VAR_container_image_tag` set to the pushed SHA so ECS receives a new task definition revision.
 - Keep environment-specific `terraform.tfvars` files under version control (no secrets) so CI can run unattended. Point secrets (`DATABASE_URL`, `API_KEYS`, etc.) to SSM Parameters or Secrets Manager ARNs referenced in `app_secrets`.
-- Grant the CI IAM role permissions for: `ecs:*`, `iam:PassRole` on the task/execution roles, `elasticloadbalancing:*`, `logs:*`, `ssm:GetParameters`, `secretsmanager:GetSecretValue`, and CRUD on the state bucket/DynamoDB lock table.
+- Grant the CI IAM role permissions for: `ecs:*`, `iam:PassRole` on the task/execution roles, `elasticloadbalancing:*`, `logs:*`, `rds:*` (or specific RDS actions including `rds:ModifyDBSubnetGroup`), `ssm:GetParameters`, `secretsmanager:GetSecretValue`, and CRUD on the state bucket/DynamoDB lock table. See `policies/rds-deploy-role-policy.json` for a complete RDS policy template.
 - Provide sensitive DB values (e.g., `db_master_password`) via CI secrets/environment variables such as `TF_VAR_DB_MASTER_PASSWORD`; the configuration accepts either casing.
 - When `enable_bastion_host=true`, use AWS Systems Manager port forwarding to reach RDS from your laptop:
   ```bash
@@ -245,9 +245,10 @@ envs/dev/variables.tf (line 1) shows every input; adjust defaults if dev/stage/p
 If you plan to serve HTTPS, request/validate an ACM certificate and set enable_https=true + certificate_arn=<your cert> either in terraform.tfvars or via environment-specific override.
 IAM + roles
 
-Create IAM role for GitHub Actions (e.g., RentifyDeployRole). Trust policy must allow your GitHub organisation’s OIDC provider (token.actions.githubusercontent.com) with conditions on repo/branch. Attach permissions:
+Create IAM role for GitHub Actions (e.g., RentifyDeployRole). Trust policy must allow your GitHub organisation's OIDC provider (token.actions.githubusercontent.com) with conditions on repo/branch. Attach permissions:
 ECR push/pull (ecr:* on repo).
 ECS + Application Load Balancer + CloudWatch Logs creation/updates.
+RDS permissions for managing PostgreSQL instances and DB subnet groups (see `policies/rds-deploy-role-policy.json` for a complete policy document).
 iam:PassRole for the ECS task + execution roles Terraform creates.
 S3/DynamoDB access for Terraform state.
 ssm:GetParameters / secretsmanager:GetSecretValue for referenced secrets.
