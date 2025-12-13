@@ -93,6 +93,22 @@ output "api_endpoint" {
 # }
 
 output "search_backend" {
-  description = "Search backend in use (PostgreSQL fallback when OpenSearch is disabled)"
-  value       = "PostgreSQL (OpenSearch disabled in AWS)"
+  description = "Search backend in use"
+  value       = var.enable_opensearch_ec2 ? "OpenSearch on EC2" : "PostgreSQL (OpenSearch disabled)"
+}
+
+# OpenSearch EC2 outputs
+output "opensearch_ec2_endpoint" {
+  description = "OpenSearch HTTP endpoint on EC2 (http://private_ip:9200)"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_endpoint : null
+}
+
+output "opensearch_ec2_host" {
+  description = "OpenSearch host (private IP) for use in OPENSEARCH_HOST env var"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_host : null
+}
+
+output "opensearch_ec2_instance_id" {
+  description = "EC2 instance ID running OpenSearch"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].instance_id : null
 }
