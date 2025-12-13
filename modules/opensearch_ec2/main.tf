@@ -13,36 +13,6 @@ resource "aws_security_group" "opensearch" {
   description = "Security group for OpenSearch EC2 instance"
   vpc_id      = var.vpc_id
 
-  # Allow OpenSearch HTTP from ECS service
-  ingress {
-    from_port                = 9200
-    to_port                  = 9200
-    protocol                 = "tcp"
-    source_security_group_id = var.ecs_security_group_id
-    description              = "OpenSearch HTTP from ECS service"
-  }
-
-  # Allow OpenSearch performance analyzer from ECS service
-  ingress {
-    from_port                = 9600
-    to_port                  = 9600
-    protocol                 = "tcp"
-    source_security_group_id = var.ecs_security_group_id
-    description              = "OpenSearch performance analyzer from ECS service"
-  }
-
-  # Allow SSH from bastion (if enabled)
-  dynamic "ingress" {
-    for_each = var.bastion_security_group_id != null ? [1] : []
-    content {
-      from_port                = 22
-      to_port                  = 22
-      protocol                 = "tcp"
-      source_security_group_id = var.bastion_security_group_id
-      description              = "SSH from bastion host"
-    }
-  }
-
   egress {
     from_port   = 0
     to_port     = 0

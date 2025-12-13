@@ -124,7 +124,7 @@ module "ecs_service" {
   enable_opensearch_access             = false
   tags                                 = local.tags
 
-  depends_on = [module.rds, module.opensearch_ec2]
+  depends_on = [module.rds]
 }
 
 module "rds" {
@@ -173,17 +173,49 @@ module "opensearch_ec2" {
   count  = var.enable_opensearch_ec2 ? 1 : 0
   source = "../../modules/opensearch_ec2"
 
-  name                      = local.name
-  vpc_id                    = module.networking.vpc_id
-  subnet_id                 = module.networking.private_subnet_ids[0]
-  ecs_security_group_id     = module.ecs_service.service_security_group_id
-  bastion_security_group_id = var.enable_bastion_host ? module.bastion.security_group_id : null
-  instance_type             = var.opensearch_ec2_instance_type
-  opensearch_image          = var.opensearch_ec2_image
-  opensearch_version        = var.opensearch_ec2_version
-  java_heap_size            = var.opensearch_ec2_java_heap_size
-  enable_cloudwatch_logs    = false
-  tags                      = local.tags
+  name                   = local.name
+  vpc_id                 = module.networking.vpc_id
+  subnet_id              = module.networking.private_subnet_ids[0]
+  instance_type          = var.opensearch_ec2_instance_type
+  opensearch_image       = var.opensearch_ec2_image
+  opensearch_version     = var.opensearch_ec2_version
+  java_heap_size         = var.opensearch_ec2_java_heap_size
+  enable_cloudwatch_logs = false
+  tags                   = local.tags
+}
+
+# Security group rules for OpenSearch EC2 (created separately to avoid circular dependency)
+resource "aws_security_group_rule" "opensearch_from_ecs_http" {
+  count                    = var.enable_opensearch_ec2 ? 1 : 0
+  type                     = "ingress"
+  from_port                = 9200
+  to_port                  = 9200
+  protocol                 = "tcp"
+  security_group_id        = module.opensearch_ec2[0].security_group_id
+  source_security_group_id = module.ecs_service.service_security_group_id
+  description              = "OpenSearch HTTP from ECS service"
+}
+
+resource "aws_security_group_rule" "opensearch_from_ecs_perf" {
+  count                    = var.enable_opensearch_ec2 ? 1 : 0
+  type                     = "ingress"
+  from_port                = 9600
+  to_port                  = 9600
+  protocol                 = "tcp"
+  security_group_id        = module.opensearch_ec2[0].security_group_id
+  source_security_group_id = module.ecs_service.service_security_group_id
+  description              = "OpenSearch performance analyzer from ECS service"
+}
+
+resource "aws_security_group_rule" "opensearch_from_bastion" {
+  count                    = var.enable_opensearch_ec2 && var.enable_bastion_host ? 1 : 0
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  security_group_id        = module.opensearch_ec2[0].security_group_id
+  source_security_group_id = module.bastion.security_group_id
+  description              = "SSH from bastion host"
 }
 
 # ============================================================================

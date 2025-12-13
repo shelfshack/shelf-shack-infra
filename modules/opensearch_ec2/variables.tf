@@ -13,16 +13,8 @@ variable "subnet_id" {
   type        = string
 }
 
-variable "ecs_security_group_id" {
-  description = "Security group ID of the ECS service that needs to access OpenSearch"
-  type        = string
-}
-
-variable "bastion_security_group_id" {
-  description = "Optional security group ID of bastion host for SSH access"
-  type        = string
-  default     = null
-}
+# Note: Security group rules are created separately in the main.tf file
+# to avoid circular dependencies with the ECS service module
 
 variable "instance_type" {
   description = "EC2 instance type for OpenSearch"
