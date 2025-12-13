@@ -414,3 +414,34 @@ variable "opensearch_create_service_linked_role" {
   type        = bool
   default     = true
 }
+
+# OpenSearch EC2 Configuration
+variable "enable_opensearch_ec2" {
+  description = "Enable OpenSearch on EC2 instance (replaces ECS-based OpenSearch)"
+  type        = bool
+  default     = true
+}
+
+variable "opensearch_ec2_instance_type" {
+  description = "EC2 instance type for OpenSearch"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "opensearch_ec2_image" {
+  description = "OpenSearch Docker image name"
+  type        = string
+  default     = "opensearchproject/opensearch"
+}
+
+variable "opensearch_ec2_version" {
+  description = "OpenSearch Docker image version/tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "opensearch_ec2_java_heap_size" {
+  description = "Java heap size for OpenSearch (e.g., '512m', '1g')"
+  type        = string
+  default     = "512m"
+}
