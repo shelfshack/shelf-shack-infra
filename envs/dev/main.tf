@@ -94,7 +94,14 @@ module "ecs_service" {
   assign_public_ip            = var.assign_public_ip
   enable_load_balancer        = var.enable_load_balancer
   service_subnet_ids          = var.service_subnet_ids
-  environment_variables       = local.environment_variables
+  environment_variables       = concat(
+    local.environment_variables,
+    # Add OpenSearch host if EC2 OpenSearch is enabled
+    var.enable_opensearch_ec2 ? [{
+      name  = "OPENSEARCH_HOST"
+      value = module.opensearch_ec2[0].opensearch_host
+    }] : []
+  )
   secrets                     = var.app_secrets
   health_check_path           = var.health_check_path
   listener_port               = var.listener_port
@@ -110,15 +117,14 @@ module "ecs_service" {
   task_role_managed_policies         = var.task_role_managed_policies
   additional_service_security_group_ids = var.extra_service_security_group_ids
   command                              = var.command
-  # Temporarily disabled AWS OpenSearch Service - using containerized version instead
+  # Temporarily disabled AWS OpenSearch Service - using EC2-based version instead
   # opensearch_domain_arn                = module.opensearch.domain_arn
   # enable_opensearch_access             = true
   opensearch_domain_arn                = null
   enable_opensearch_access             = false
   tags                                 = local.tags
 
-  depends_on = [module.rds]
-  # Note: OpenSearch is disabled - backend will use PostgreSQL for search
+  depends_on = [module.rds, module.opensearch_ec2]
 }
 
 module "rds" {
@@ -161,7 +167,27 @@ resource "aws_security_group_rule" "rds_from_bastion" {
 }
 
 # ============================================================================
-# AWS OpenSearch Service (TEMPORARILY DISABLED - Using containerized version)
+# OpenSearch on EC2 (Replaces ECS-based OpenSearch)
+# ============================================================================
+module "opensearch_ec2" {
+  count  = var.enable_opensearch_ec2 ? 1 : 0
+  source = "../../modules/opensearch_ec2"
+
+  name                      = local.name
+  vpc_id                    = module.networking.vpc_id
+  subnet_id                 = module.networking.private_subnet_ids[0]
+  ecs_security_group_id     = module.ecs_service.service_security_group_id
+  bastion_security_group_id = var.enable_bastion_host ? module.bastion.security_group_id : null
+  instance_type             = var.opensearch_ec2_instance_type
+  opensearch_image          = var.opensearch_ec2_image
+  opensearch_version        = var.opensearch_ec2_version
+  java_heap_size            = var.opensearch_ec2_java_heap_size
+  enable_cloudwatch_logs    = false
+  tags                      = local.tags
+}
+
+# ============================================================================
+# AWS OpenSearch Service (TEMPORARILY DISABLED - Using EC2-based version)
 # ============================================================================
 # 
 # COMMENTED OUT: This module provisions an Amazon OpenSearch Service domain.
