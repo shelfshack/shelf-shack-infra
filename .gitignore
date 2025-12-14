@@ -1,14 +1,18 @@
+# Backup files
+*.bak
+*.swp
+*.tmp
+
+# Terraform
 .terraform/
-.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
-crash.log
-override.tf
-override.tf.json
-*.override.tf
-*.override.tf.json
-*.tfvars.json
-.DS_Store
-# Environment variables (sensitive)
+.terraform.lock.hcl
+
+# Environment files
 .env
-envs/**/.env
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db

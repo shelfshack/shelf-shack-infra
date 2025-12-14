@@ -3,7 +3,13 @@
 
 set -e
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+cd "$REPO_ROOT/envs/dev" cd "$(dirname "$0")"cd "$(dirname "$0")" pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+cd "$REPO_ROOT/envs/dev"cd "$(dirname "$0")" pwd)"
+cd "$REPO_ROOT/envs/dev"
 
 CLUSTER=$(terraform output -raw cluster_name 2>/dev/null || echo "")
 SERVICE=$(terraform output -raw service_name 2>/dev/null || echo "")

@@ -123,6 +123,8 @@ echo "Configuring OpenSearch with security enabled (password: ${var.opensearch_a
 sudo docker run -d \
   --name opensearch \
   --restart unless-stopped \
+  --memory="4g" \
+  --memory-swap="4g" \
   -p 9200:9200 \
   -p 9600:9600 \
   -e "discovery.type=single-node" \
@@ -144,33 +146,72 @@ echo "Configuring OpenSearch with security DISABLED (no password required)"
 sudo docker run -d \
   --name opensearch \
   --restart unless-stopped \
+  --memory="4g" \
+  --memory-swap="4g" \
   -p 9200:9200 \
   -p 9600:9600 \
   -e "discovery.type=single-node" \
   -e "network.host=0.0.0.0" \
   -e "OPENSEARCH_JAVA_OPTS=-Xms${var.java_heap_size} -Xmx${var.java_heap_size}" \
   -e "plugins.security.disabled=true" \
-  -e "DISABLE_SECURITY_PLUGIN=true" \
   -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=${var.opensearch_admin_password}" \
   -e "DISABLE_INSTALL_DEMO_CONFIG=true" \
   -v opensearch-data:/usr/share/opensearch/data \
   ${var.opensearch_image}:${var.opensearch_version}
 %{ endif ~}
 
-# Verify container started
+# Verify container started (with timeout to avoid hanging)
 echo "Verifying container started..."
 sleep 5
-if ! sudo docker ps | grep -q opensearch; then
-  echo "ERROR: Container failed to start!"
-  echo "Container logs:"
-  sudo docker logs opensearch 2>&1 || true
-  exit 1
-fi
-echo "Container is running"
+CONTAINER_RUNNING=false
+for i in {1..6}; do
+  if sudo docker ps --format '{{.Names}}' | grep -q '^opensearch$'; then
+    CONTAINER_RUNNING=true
+    echo "Container is running"
+    break
+  fi
+  echo "Waiting for container... ($i/6)"
+  sleep 5
+done
 
-# Wait for OpenSearch to initialize
+if [ "$CONTAINER_RUNNING" = "false" ]; then
+  echo "WARNING: Container not found in running containers"
+  echo "Checking all containers (including stopped):"
+  sudo docker ps -a | grep opensearch || echo "No opensearch container found"
+  echo ""
+  echo "Container exit code:"
+  EXIT_CODE=$(sudo docker inspect opensearch --format='{{.State.ExitCode}}' 2>/dev/null || echo "N/A")
+  echo "Exit code: $EXIT_CODE"
+  echo ""
+  echo "Checking for OOM kill:"
+  OOM_KILLED=$(sudo docker inspect opensearch --format='{{.State.OOMKilled}}' 2>/dev/null || echo "N/A")
+  echo "OOM Killed: $OOM_KILLED"
+  if [ "$OOM_KILLED" = "true" ]; then
+    echo "ERROR: Container was killed due to Out of Memory!"
+    echo "System memory info:"
+    free -h || echo "free command not available"
+    echo ""
+    echo "Consider:"
+    echo "1. Using a larger instance type (t3.small with 2GB RAM)"
+    echo "2. Further reducing heap size (current: ${var.java_heap_size})"
+  fi
+  echo ""
+  echo "Container logs (if exists):"
+  sudo docker logs opensearch --tail 50 2>&1 || echo "Cannot get logs"
+  echo ""
+  echo "System memory usage:"
+  free -h 2>/dev/null || echo "free command not available"
+  echo ""
+  # Don't exit - try to continue
+fi
+
+# Wait for OpenSearch to initialize (with memory check)
 echo "Waiting for OpenSearch to initialize..."
+echo "System memory before wait:"
+free -h 2>/dev/null || echo "free command not available"
 sleep 20
+echo "System memory after wait:"
+free -h 2>/dev/null || echo "free command not available"
 
 # Check if container is running
 echo "=== Container Status ==="

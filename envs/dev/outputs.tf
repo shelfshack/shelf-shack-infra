@@ -28,10 +28,11 @@ output "rds_endpoint" {
   value       = module.rds.endpoint
 }
 
-output "bastion_instance_id" {
-  description = "Instance ID of the bastion host (if enabled)."
-  value       = module.bastion.instance_id
-}
+# Bastion host disabled - can be enabled in future if needed
+# output "bastion_instance_id" {
+#   description = "Instance ID of the bastion host (if enabled)."
+#   value       = module.bastion.instance_id
+# }
 
 # AWS OpenSearch Service outputs (temporarily disabled)
 # output "opensearch_domain_endpoint" {

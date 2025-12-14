@@ -5,7 +5,10 @@ environment  = "dev"
 availability_zones = ["us-east-1a", "us-east-1b"]
 public_subnet_cidrs  = ["10.0.0.0/24", "10.0.1.0/24"]
 private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
-enable_bastion_host  = true
+# Bastion host disabled - can be enabled in future if needed
+# enable_bastion_host  = true
+# bastion_allow_ssh_cidr_blocks = []
+enable_bastion_host  = false
 bastion_allow_ssh_cidr_blocks = []
 
 container_image_tag = "latest"
@@ -101,3 +104,8 @@ opensearch_create_service_linked_role = false
 # OpenSearch EC2 Configuration
 opensearch_ec2_security_disabled = true
 enable_opensearch_ec2 = true
+# Use stable version (2.11.0)
+opensearch_ec2_image   = "opensearchproject/opensearch"
+opensearch_ec2_version = "2.11.0"
+opensearch_ec2_instance_type = "m7i-flex.large"  # 8GB RAM, 2 vCPU (BEST FREE TIER option!)
+opensearch_ec2_java_heap_size = "2g"  # Optimal heap for m7i-flex.large (8GB RAM)

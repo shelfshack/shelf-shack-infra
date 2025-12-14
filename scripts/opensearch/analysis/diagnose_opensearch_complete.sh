@@ -9,7 +9,9 @@ echo "COMPREHENSIVE OPENSEARCH DIAGNOSIS"
 echo "=========================================="
 echo ""
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+cd "$REPO_ROOT/envs/dev" || exit 1
 
 # Get infrastructure details
 INSTANCE_ID=$(terraform output -raw opensearch_ec2_instance_id 2>/dev/null || echo "NOT_FOUND")

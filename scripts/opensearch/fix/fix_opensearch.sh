@@ -1,6 +1,13 @@
 #!/bin/bash
 # Fix OpenSearch container on EC2 instance
 
+# Get script directory and find repo root
+SCRIPT_DIR="$(SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+cd "$REPO_ROOT/envs/dev" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+cd "$REPO_ROOT/envs/dev"
+
 INSTANCE_ID=$(terraform output -raw opensearch_ec2_instance_id 2>/dev/null)
 
 if [ -z "$INSTANCE_ID" ]; then
