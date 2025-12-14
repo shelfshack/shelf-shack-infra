@@ -445,3 +445,22 @@ variable "opensearch_ec2_java_heap_size" {
   type        = string
   default     = "512m"
 }
+
+variable "opensearch_ec2_admin_username" {
+  description = "Admin username for OpenSearch authentication"
+  type        = string
+  default     = "admin"
+}
+
+variable "opensearch_ec2_admin_password" {
+  description = "Admin password for OpenSearch authentication (required for versions 2.12.0+). Must be at least 8 characters with uppercase, lowercase, digit, and special character."
+  type        = string
+  default     = "OpenSearch@2024!"  # Strong password meeting OpenSearch requirements
+  sensitive   = true
+}
+
+variable "opensearch_ec2_security_disabled" {
+  description = "Disable OpenSearch security plugin (set to false to enable password authentication)"
+  type        = bool
+  default     = false
+}
