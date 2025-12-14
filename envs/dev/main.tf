@@ -58,18 +58,17 @@ module "networking" {
   tags                 = local.tags
 }
 
-# Bastion host disabled - can be enabled in future if needed
-# module "bastion" {
-#   source = "../../modules/bastion_host"
-#
-#   enabled               = var.enable_bastion_host
-#   name                  = local.name
-#   subnet_id             = module.networking.private_subnet_ids[0]
-#   vpc_id                = module.networking.vpc_id
-#   instance_type         = var.bastion_instance_type
-#   allow_ssh_cidr_blocks = var.bastion_allow_ssh_cidr_blocks
-#   tags                  = local.tags
-# }
+module "bastion" {
+  source = "../../modules/bastion_host"
+
+  enabled               = var.enable_bastion_host
+  name                  = local.name
+  subnet_id             = module.networking.private_subnet_ids[0]
+  vpc_id                = module.networking.vpc_id
+  instance_type         = var.bastion_instance_type
+  allow_ssh_cidr_blocks = var.bastion_allow_ssh_cidr_blocks
+  tags                  = local.tags
+}
 
 module "ecr" {
   source = "../../modules/ecr_repository"
@@ -141,6 +140,7 @@ module "ecs_service" {
   enable_execute_command             = var.enable_execute_command
   force_new_deployment               = var.force_new_deployment
   task_role_managed_policies         = var.task_role_managed_policies
+  s3_bucket_name                     = lookup(var.app_environment, "S3_BUCKET_NAME", null)
   additional_service_security_group_ids = var.extra_service_security_group_ids
   command                              = var.command
   # Temporarily disabled AWS OpenSearch Service - using EC2-based version instead
@@ -182,16 +182,15 @@ resource "aws_security_group_rule" "rds_from_ecs" {
   source_security_group_id = module.ecs_service.service_security_group_id
 }
 
-# Bastion host disabled - can be enabled in future if needed
-# resource "aws_security_group_rule" "rds_from_bastion" {
-#   count                    = var.enable_bastion_host ? 1 : 0
-#   type                     = "ingress"
-#   from_port                = 5432
-#   to_port                  = 5432
-#   protocol                 = "tcp"
-#   security_group_id        = module.rds.security_group_id
-#   source_security_group_id = module.bastion.security_group_id
-# }
+resource "aws_security_group_rule" "rds_from_bastion" {
+  count                    = var.enable_bastion_host ? 1 : 0
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = module.rds.security_group_id
+  source_security_group_id = module.bastion.security_group_id
+}
 
 # ============================================================================
 # OpenSearch on EC2 (Replaces ECS-based OpenSearch)
@@ -237,17 +236,16 @@ resource "aws_security_group_rule" "opensearch_from_ecs_perf" {
   description              = "OpenSearch performance analyzer from ECS service"
 }
 
-# Bastion host disabled - can be enabled in future if needed
-# resource "aws_security_group_rule" "opensearch_from_bastion" {
-#   count                    = var.enable_opensearch_ec2 && var.enable_bastion_host ? 1 : 0
-#   type                     = "ingress"
-#   from_port                = 22
-#   to_port                  = 22
-#   protocol                 = "tcp"
-#   security_group_id        = module.opensearch_ec2[0].security_group_id
-#   source_security_group_id = module.bastion.security_group_id
-#   description              = "SSH from bastion host"
-# }
+resource "aws_security_group_rule" "opensearch_from_bastion" {
+  count                    = var.enable_opensearch_ec2 && var.enable_bastion_host ? 1 : 0
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  security_group_id        = module.opensearch_ec2[0].security_group_id
+  source_security_group_id = module.bastion.security_group_id
+  description              = "SSH from bastion host"
+}
 
 # ============================================================================
 # AWS OpenSearch Service (TEMPORARILY DISABLED - Using EC2-based version)
