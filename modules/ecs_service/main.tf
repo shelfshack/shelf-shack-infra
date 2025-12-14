@@ -143,6 +143,42 @@ resource "aws_iam_role_policy_attachment" "task_managed" {
   policy_arn = each.value
 }
 
+# S3 access policy for task role (for file uploads)
+# Only create if s3_bucket_name is provided
+data "aws_iam_policy_document" "task_s3" {
+  count = var.s3_bucket_name != null && var.s3_bucket_name != "" ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+      "s3:GetObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "arn:aws:s3:::${var.s3_bucket_name}/*"
+    ]
+  }
+  
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket"
+    ]
+    resources = [
+      "arn:aws:s3:::${var.s3_bucket_name}"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "task_s3" {
+  count  = var.s3_bucket_name != null && var.s3_bucket_name != "" ? 1 : 0
+  name   = "${var.name}-task-s3-access"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_s3[0].json
+}
+
 # OpenSearch access policy for task role (if enabled)
 data "aws_iam_policy_document" "task_opensearch" {
   count = var.enable_opensearch_access ? 1 : 0

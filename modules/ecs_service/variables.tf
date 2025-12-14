@@ -185,3 +185,9 @@ variable "enable_opensearch_access" {
   type        = bool
   default     = false
 }
+
+variable "s3_bucket_name" {
+  description = "S3 bucket name for file uploads. If provided, grants S3 permissions to task role."
+  type        = string
+  default     = null
+}
