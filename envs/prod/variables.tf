@@ -414,3 +414,53 @@ variable "opensearch_create_service_linked_role" {
   type        = bool
   default     = true
 }
+
+# OpenSearch EC2 Configuration
+variable "enable_opensearch_ec2" {
+  description = "Enable OpenSearch on EC2 instance (replaces ECS-based OpenSearch)"
+  type        = bool
+  default     = true
+}
+
+variable "opensearch_ec2_instance_type" {
+  description = "EC2 instance type for OpenSearch"
+  type        = string
+  default     = "m7i-flex.large"
+}
+
+variable "opensearch_ec2_image" {
+  description = "OpenSearch Docker image name"
+  type        = string
+  default     = "opensearchproject/opensearch"
+}
+
+variable "opensearch_ec2_version" {
+  description = "OpenSearch Docker image version/tag"
+  type        = string
+  default     = "2.11.0"
+}
+
+variable "opensearch_ec2_java_heap_size" {
+  description = "Java heap size for OpenSearch (e.g., '512m', '1g', '2g')"
+  type        = string
+  default     = "2g"
+}
+
+variable "opensearch_ec2_admin_username" {
+  description = "Admin username for OpenSearch authentication"
+  type        = string
+  default     = "admin"
+}
+
+variable "opensearch_ec2_admin_password" {
+  description = "Admin password for OpenSearch authentication (required for versions 2.12.0+). Must be at least 8 characters with uppercase, lowercase, digit, and special character."
+  type        = string
+  default     = "OpenSearch@2024!"  # Strong password meeting OpenSearch requirements
+  sensitive   = true
+}
+
+variable "opensearch_ec2_security_disabled" {
+  description = "Disable OpenSearch security plugin (set to false to enable password authentication)"
+  type        = bool
+  default     = false
+}

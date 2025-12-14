@@ -5,7 +5,10 @@ environment  = "dev"
 availability_zones = ["us-east-1a", "us-east-1b"]
 public_subnet_cidrs  = ["10.0.0.0/24", "10.0.1.0/24"]
 private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
-enable_bastion_host  = true
+# Bastion host disabled - can be enabled in future if needed
+# enable_bastion_host  = true
+# bastion_allow_ssh_cidr_blocks = []
+enable_bastion_host  = false
 bastion_allow_ssh_cidr_blocks = []
 
 container_image_tag = "latest"
@@ -24,6 +27,15 @@ app_environment = {
   NODE_ENV = "production"
   DB_MANAGE_COMMAND = "--create --bootstrap"
   DB_BOOTSTRAP = "true"
+  SYNC_MISSING_TO_OPENSEARCH="true"
+  PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
+  S3_BUCKET_NAME="rentify-dev-uploads"
+  S3_REGION="us-east-1"
+  S3_PUBLIC_BASE_URL="https://rentify-dev-uploads.s3.us-east-1.amazonaws.com/"
+  S3_PROFILE_PREFIX="profile_photos"
+  S3_ITEM_PREFIX="item_images"
+  S3_USE_PATH_STYLE="false"
+  ACCESS_TOKEN_EXPIRE_MINUTES=30
 }
 
 force_new_deployment = true
@@ -88,3 +100,12 @@ opensearch_allowed_cidr_blocks = []
 # Set to false if the OpenSearch service-linked role already exists in your account
 # (The role can only be created once per AWS account and requires special IAM permissions)
 opensearch_create_service_linked_role = false
+
+# OpenSearch EC2 Configuration
+opensearch_ec2_security_disabled = true
+enable_opensearch_ec2 = true
+# Use stable version (2.11.0)
+opensearch_ec2_image   = "opensearchproject/opensearch"
+opensearch_ec2_version = "2.11.0"
+opensearch_ec2_instance_type = "m7i-flex.large"  # 8GB RAM, 2 vCPU (BEST FREE TIER option!)
+opensearch_ec2_java_heap_size = "2g"  # Optimal heap for m7i-flex.large (8GB RAM)

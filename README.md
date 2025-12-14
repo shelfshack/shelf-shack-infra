@@ -248,10 +248,13 @@ IAM + roles
 Create IAM role for GitHub Actions (e.g., RentifyDeployRole). Trust policy must allow your GitHub organisation's OIDC provider (token.actions.githubusercontent.com) with conditions on repo/branch. Attach permissions:
 ECR push/pull (ecr:* on repo).
 ECS + Application Load Balancer + CloudWatch Logs creation/updates.
-RDS permissions for managing PostgreSQL instances and DB subnet groups (see `policies/rds-deploy-role-policy.json` for a complete policy document).
+RDS permissions for managing PostgreSQL instances and DB subnet groups (see `policies/rds-deploy-role-policy.json`).
+IAM permissions for creating roles, instance profiles, and policies (see `policies/deploy-role-iam-ec2-policy.json`).
+EC2 permissions for launching and managing EC2 instances (see `policies/deploy-role-iam-ec2-policy.json`).
 iam:PassRole for the ECS task + execution roles Terraform creates.
 S3/DynamoDB access for Terraform state.
 ssm:GetParameters / secretsmanager:GetSecretValue for referenced secrets.
+See `docs/DEPLOY_ROLE_IAM_SETUP.md` for complete setup instructions.
 Create IAM roles for the ECS task/execution if you’d rather not let Terraform manage them; otherwise Terraform creates them automatically.
 ECR repo
 
