@@ -122,6 +122,7 @@ module "ecs_service" {
   enable_execute_command             = var.enable_execute_command
   force_new_deployment               = var.force_new_deployment
   task_role_managed_policies         = var.task_role_managed_policies
+  s3_bucket_name                     = lookup(var.app_environment, "S3_BUCKET_NAME", null)
   additional_service_security_group_ids = var.extra_service_security_group_ids
   command                              = var.command
   # Temporarily disabled AWS OpenSearch Service - using containerized version instead
