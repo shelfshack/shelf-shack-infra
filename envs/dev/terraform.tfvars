@@ -24,6 +24,15 @@ app_environment = {
   NODE_ENV = "production"
   DB_MANAGE_COMMAND = "--create --bootstrap"
   DB_BOOTSTRAP = "true"
+  SYNC_MISSING_TO_OPENSEARCH="true"
+  PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
+  S3_BUCKET_NAME="rentify-dev-uploads"
+  S3_REGION="us-east-1"
+  S3_PUBLIC_BASE_URL="https://rentify-dev-uploads.s3.us-east-1.amazonaws.com/"
+  S3_PROFILE_PREFIX="profile_photos"
+  S3_ITEM_PREFIX="item_images"
+  S3_USE_PATH_STYLE="false"
+  ACCESS_TOKEN_EXPIRE_MINUTES=30
 }
 
 force_new_deployment = true
@@ -88,3 +97,7 @@ opensearch_allowed_cidr_blocks = []
 # Set to false if the OpenSearch service-linked role already exists in your account
 # (The role can only be created once per AWS account and requires special IAM permissions)
 opensearch_create_service_linked_role = false
+
+# OpenSearch EC2 Configuration
+opensearch_ec2_security_disabled = true
+enable_opensearch_ec2 = true

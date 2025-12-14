@@ -96,11 +96,36 @@ module "ecs_service" {
   service_subnet_ids          = var.service_subnet_ids
   environment_variables       = concat(
     local.environment_variables,
-    # Add OpenSearch host if EC2 OpenSearch is enabled
-    var.enable_opensearch_ec2 ? [{
-      name  = "OPENSEARCH_HOST"
-      value = module.opensearch_ec2[0].opensearch_host
-    }] : []
+    # Add OpenSearch configuration if EC2 OpenSearch is enabled
+    var.enable_opensearch_ec2 ? concat([
+      {
+        name  = "OPENSEARCH_HOST"
+        value = module.opensearch_ec2[0].opensearch_host
+      },
+      {
+        name  = "OPENSEARCH_PORT"
+        value = "9200"
+      },
+      {
+        name  = "OPENSEARCH_USE_SSL"
+        value = "false"
+      },
+      {
+        name  = "OPENSEARCH_VERIFY_CERTS"
+        value = "false"
+      }
+    ],
+    # Add authentication if password is provided
+    var.opensearch_ec2_admin_password != null ? [
+      {
+        name  = "OPENSEARCH_USERNAME"
+        value = "admin"
+      },
+      {
+        name  = "OPENSEARCH_PASSWORD"
+        value = var.opensearch_ec2_admin_password
+      }
+    ] : []) : []
   )
   secrets                     = var.app_secrets
   health_check_path           = var.health_check_path
@@ -173,15 +198,18 @@ module "opensearch_ec2" {
   count  = var.enable_opensearch_ec2 ? 1 : 0
   source = "../../modules/opensearch_ec2"
 
-  name                   = local.name
-  vpc_id                 = module.networking.vpc_id
-  subnet_id              = module.networking.private_subnet_ids[0]
-  instance_type          = var.opensearch_ec2_instance_type
-  opensearch_image       = var.opensearch_ec2_image
-  opensearch_version     = var.opensearch_ec2_version
-  java_heap_size         = var.opensearch_ec2_java_heap_size
-  enable_cloudwatch_logs = false
-  tags                   = local.tags
+  name                        = local.name
+  vpc_id                      = module.networking.vpc_id
+  subnet_id                   = module.networking.private_subnet_ids[0]
+  instance_type               = var.opensearch_ec2_instance_type
+  opensearch_image            = var.opensearch_ec2_image
+  opensearch_version          = var.opensearch_ec2_version
+  java_heap_size              = var.opensearch_ec2_java_heap_size
+  opensearch_admin_username   = var.opensearch_ec2_admin_username
+  opensearch_admin_password   = var.opensearch_ec2_admin_password
+  opensearch_security_disabled = var.opensearch_ec2_security_disabled
+  enable_cloudwatch_logs      = false
+  tags                        = local.tags
 }
 
 # Security group rules for OpenSearch EC2 (created separately to avoid circular dependency)

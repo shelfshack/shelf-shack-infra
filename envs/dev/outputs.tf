@@ -13,6 +13,11 @@ output "service_name" {
   value       = module.ecs_service.service_name
 }
 
+output "service_security_group_id" {
+  description = "Security group ID for the ECS service."
+  value       = module.ecs_service.service_security_group_id
+}
+
 output "load_balancer_dns" {
   description = "DNS of the public Application Load Balancer."
   value       = module.ecs_service.load_balancer_dns
