@@ -329,6 +329,7 @@ module "ecs_service" {
   force_new_deployment               = var.force_new_deployment
   task_role_managed_policies         = var.task_role_managed_policies
   s3_bucket_name                     = lookup(var.app_environment, "S3_BUCKET_NAME", null)
+  websocket_connections_table_name  = "${local.name}-websocket-connections"
   additional_service_security_group_ids = var.extra_service_security_group_ids
   command                              = var.command
   # Temporarily disabled AWS OpenSearch Service - using EC2-based version instead
@@ -682,7 +683,6 @@ module "websocket_lambda" {
   name                  = local.name
   connections_table_name = "${local.name}-websocket-connections"
   lambda_source_file    = var.websocket_lambda_source_file
-  lambda_requirements_file = var.websocket_lambda_requirements_file
   # Use the same dynamically determined backend URL as HTTP API Gateway
   # Priority: var.websocket_backend_url > local.backend_url (auto-fetched) > fallback
   backend_url = var.websocket_backend_url != null ? var.websocket_backend_url : (

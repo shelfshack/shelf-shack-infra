@@ -191,3 +191,9 @@ variable "s3_bucket_name" {
   type        = string
   default     = null
 }
+
+variable "websocket_connections_table_name" {
+  description = "DynamoDB table name for WebSocket connections. If provided, grants DynamoDB Query permissions to task role."
+  type        = string
+  default     = null
+}

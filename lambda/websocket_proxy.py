@@ -206,6 +206,42 @@ def handle_connect(event, connection_id):
             logger.error(f"Failed to get initial history from backend: {e}", exc_info=True)
             # Still accept connection - client can request history separately if needed
     
+    # For booking status connections, call backend to get initial status
+    if connection_type == 'booking' and booking_id and token:
+        logger.info(f"Calling backend for booking status connect: booking_id={booking_id}, connection_id={connection_id}")
+        try:
+            backend_url = f"{BACKEND_URL}/api/ws/bookings/{booking_id}/connect"
+            logger.info(f"Backend URL: {backend_url}")
+            
+            backend_response = forward_to_backend(
+                backend_url,
+                {
+                    'connection_id': connection_id,
+                    'token': token
+                }
+            )
+            logger.info(f"Backend response received: success={backend_response.get('success') if backend_response else False}")
+            
+            # Send initial status to client
+            if backend_response and backend_response.get('success') and backend_response.get('response'):
+                response_data = backend_response['response']
+                logger.info(f"Response data keys: {list(response_data.keys())}")
+                if response_data.get('initial'):
+                    logger.info(f"Sending initial status to connection {connection_id}")
+                    try:
+                        send_to_client(connection_id, response_data['initial'])
+                        logger.info(f"Successfully sent initial status to {connection_id}")
+                    except Exception as send_error:
+                        logger.error(f"Failed to send initial status: {send_error}")
+                else:
+                    logger.warning(f"No 'initial' key in response data: {response_data}")
+            else:
+                error_msg = backend_response.get('error', 'Unknown error') if backend_response else 'No response'
+                logger.error(f"Backend call failed or invalid response: {error_msg}")
+        except Exception as e:
+            logger.error(f"Failed to get initial status from backend: {e}", exc_info=True)
+            # Still accept connection - client can request status separately if needed
+    
     # For notification connections, call backend to get initial notifications
     if connection_type == 'notification' and user_id and token:
         try:
@@ -290,15 +326,14 @@ def handle_message(event, connection_id):
         backend_response = None
         
         if connection_type == 'booking':
-            # Forward to booking status endpoint
-            backend_response = forward_to_backend(
-                f"{BACKEND_URL}/api/ws/bookings/{booking_id}/message",
-                {
-                    'connection_id': connection_id,
-                    'message': message_data,
-                    'token': token
-                }
-            )
+            # Booking status is one-way (backend -> client), so messages from client are not expected
+            # But if client sends a message (e.g., ping/keepalive), just acknowledge it
+            logger.info(f"Booking status connection received message (likely keepalive): {message_data}")
+            # Return acknowledgment - booking status updates come from backend, not client messages
+            send_to_client(connection_id, {"type": "ack", "message": "Received"})
+            return {
+                'statusCode': 200
+            }
         elif connection_type == 'chat':
             # Forward to chat HTTP endpoint (matches router prefix /chat)
             backend_response = forward_to_backend(

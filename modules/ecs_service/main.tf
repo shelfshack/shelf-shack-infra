@@ -1,4 +1,5 @@
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
 locals {
   tags = merge(var.tags, {
@@ -250,6 +251,44 @@ resource "aws_iam_role_policy" "task_secrets" {
   name   = "${var.name}-task-secrets-access"
   role   = aws_iam_role.task.id
   policy = data.aws_iam_policy_document.task_secrets[0].json
+}
+
+# DynamoDB access policy for task role (for WebSocket connections table)
+# Only create if websocket_connections_table_name is provided
+data "aws_iam_policy_document" "task_dynamodb" {
+  count = var.websocket_connections_table_name != null && var.websocket_connections_table_name != "" ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "dynamodb:Query",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem"
+    ]
+    resources = [
+      "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.websocket_connections_table_name}",
+      "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.websocket_connections_table_name}/index/*"
+    ]
+  }
+  
+  # API Gateway Management API permissions for sending WebSocket messages
+  statement {
+    effect = "Allow"
+    actions = [
+      "execute-api:ManageConnections"
+    ]
+    resources = [
+      "arn:aws:execute-api:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*/*/POST/@connections/*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "task_dynamodb" {
+  count  = var.websocket_connections_table_name != null && var.websocket_connections_table_name != "" ? 1 : 0
+  name   = "${var.name}-task-dynamodb-access"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_dynamodb[0].json
 }
 
 resource "aws_security_group" "alb" {
