@@ -682,6 +682,7 @@ module "websocket_lambda" {
   name                  = local.name
   connections_table_name = "${local.name}-websocket-connections"
   lambda_source_file    = var.websocket_lambda_source_file
+  lambda_requirements_file = var.websocket_lambda_requirements_file
   # Use the same dynamically determined backend URL as HTTP API Gateway
   # Priority: var.websocket_backend_url > local.backend_url (auto-fetched) > fallback
   backend_url = var.websocket_backend_url != null ? var.websocket_backend_url : (

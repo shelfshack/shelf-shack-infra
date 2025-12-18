@@ -76,6 +76,10 @@ app_secrets = [
   {
     name       = "FRONTEND_BASE_URL"
     value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:FRONTEND_BASE_URL::"
+  },
+  {
+    name       = "STRIPE_SECRET_KEY"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:stripe_secret_key-Fw4ydT:STRIPE_SECRET_KEY::"
   }
 ]
 
@@ -116,8 +120,10 @@ opensearch_ec2_java_heap_size = "2g"  # Optimal heap for m7i-flex.large (8GB RAM
 
 # WebSocket API Gateway and Lambda Configuration
 websocket_stage_name = "development"
-# Path to Lambda source file - use absolute path for reliability
-# Adjust this path based on your actual directory structure
-websocket_lambda_source_file = "/Users/rohitsoni/Desktop/GitProjects/shelf-shack-backend/lambda/websocket_proxy.py"
+# Path to Lambda source file - relative path from envs/dev directory
+# Lambda code is now part of the infra repo at: ../../lambda/websocket_proxy.py
+websocket_lambda_source_file = "../../lambda/websocket_proxy.py"
+# Path to Lambda requirements.txt - relative path from envs/dev directory
+websocket_lambda_requirements_file = "../../lambda/requirements.txt"
 # Optional: Override backend URL (defaults to ALB URL if available)
 # websocket_backend_url = "https://api.yourdomain.com"

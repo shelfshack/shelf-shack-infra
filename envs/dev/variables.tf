@@ -473,9 +473,15 @@ variable "websocket_stage_name" {
 }
 
 variable "websocket_lambda_source_file" {
-  description = "Path to the WebSocket Lambda proxy source file. Can be relative (from envs/dev) or absolute. Default assumes backend repo is sibling to infra repo. From envs/dev: ../../ -> infra root, then ../shelf-shack-backend -> sibling"
+  description = "Path to the WebSocket Lambda proxy source file. Relative path from envs/dev directory. Lambda code is part of infra repo at lambda/websocket_proxy.py"
   type        = string
-  default     = "../../shelf-shack-backend/lambda/websocket_proxy.py"
+  default     = "../../lambda/websocket_proxy.py"
+}
+
+variable "websocket_lambda_requirements_file" {
+  description = "Path to requirements.txt file for Lambda dependencies. Relative path from envs/dev directory. Defaults to lambda/requirements.txt in infra repo."
+  type        = string
+  default     = "../../lambda/requirements.txt"
 }
 
 variable "websocket_backend_url" {
