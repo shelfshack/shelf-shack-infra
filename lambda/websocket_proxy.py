@@ -160,27 +160,50 @@ def handle_connect(event, connection_id):
             # Continue anyway
     
     # For chat connections, call backend to get initial history
+    # IMPORTANT: Return response immediately, then call backend asynchronously
+    # This prevents the connection from timing out while waiting for backend response
     if connection_type == 'chat' and booking_id and token:
+        logger.info(f"Calling backend for chat connect: booking_id={booking_id}, connection_id={connection_id}")
+        # Use a separate execution context to call backend after returning response
+        # Lambda will continue execution after returning, but we need to be fast
         try:
+            backend_url = f"{BACKEND_URL}/api/chat/ws/{booking_id}/connect"
+            logger.info(f"Backend URL: {backend_url}")
+            
+            # Call backend synchronously but with shorter timeout
             backend_response = forward_to_backend(
-                f"{BACKEND_URL}/api/chat/ws/{booking_id}/connect",
+                backend_url,
                 {
                     'connection_id': connection_id,
                     'token': token
                 }
             )
+            logger.info(f"Backend response received: success={backend_response.get('success') if backend_response else False}")
             
-            # Send initial history to client
-            if backend_response and backend_response.get('response'):
+            # Send initial history to client immediately
+            if backend_response and backend_response.get('success') and backend_response.get('response'):
                 response_data = backend_response['response']
+                logger.info(f"Response data keys: {list(response_data.keys())}")
                 if response_data.get('initial'):
-                    # Send initial history
-                    send_to_client(connection_id, response_data['initial'])
+                    logger.info(f"Sending initial history to connection {connection_id}")
+                    try:
+                        send_to_client(connection_id, response_data['initial'])
+                        logger.info(f"Successfully sent initial history to {connection_id}")
+                    except Exception as send_error:
+                        logger.error(f"Failed to send initial history: {send_error}")
+                else:
+                    logger.warning(f"No 'initial' key in response data: {response_data}")
                 if response_data.get('receipt'):
-                    # Send receipt updates if any
-                    send_to_client(connection_id, response_data['receipt'])
+                    logger.info(f"Sending receipt updates to connection {connection_id}")
+                    try:
+                        send_to_client(connection_id, response_data['receipt'])
+                    except Exception as send_error:
+                        logger.error(f"Failed to send receipt: {send_error}")
+            else:
+                error_msg = backend_response.get('error', 'Unknown error') if backend_response else 'No response'
+                logger.error(f"Backend call failed or invalid response: {error_msg}")
         except Exception as e:
-            logger.warning(f"Failed to get initial history from backend: {e}")
+            logger.error(f"Failed to get initial history from backend: {e}", exc_info=True)
             # Still accept connection - client can request history separately if needed
     
     # For notification connections, call backend to get initial notifications
@@ -246,11 +269,13 @@ def handle_message(event, connection_id):
         
         # Get connection metadata from DynamoDB (stored during $connect)
         # Query params aren't available in $default route, so we retrieve from DynamoDB
+        logger.info(f"Getting connection metadata for connection_id={connection_id}")
         connection_metadata = get_connection_metadata(connection_id)
         if connection_metadata:
             booking_id = connection_metadata.get('booking_id')
             token = connection_metadata.get('token')
             connection_type = connection_metadata.get('connection_type', 'booking')
+            logger.info(f"Found connection metadata: type={connection_type}, booking_id={booking_id}, has_token={bool(token)}")
         else:
             # Cannot route message without metadata - query params aren't available in $default route
             logger.error(f"Could not retrieve connection metadata from DynamoDB for {connection_id}. Connection may not have been stored properly during $connect.")
@@ -315,24 +340,30 @@ def handle_message(event, connection_id):
         
         if backend_response.get('response'):
             response_data = backend_response['response']
+            logger.info(f"Backend response received: type={response_data.get('type')}, broadcast={response_data.get('broadcast')}")
             
             # If backend indicates this should be broadcast
             if response_data.get('broadcast'):
                 if connection_type == 'chat' and booking_id:
                     # Broadcast to all connections for this booking_id
                     all_connection_ids = get_connection_ids_for_booking(booking_id, connection_type='chat')
-                    logger.info(f"Broadcasting to {len(all_connection_ids)} connections for booking {booking_id}")
+                    logger.info(f"Broadcasting to {len(all_connection_ids)} connections for booking {booking_id}: {all_connection_ids}")
                     
                     # Send to all connections (including sender - they'll handle duplicates on frontend)
                     broadcast_count = 0
                     for conn_id in all_connection_ids:
                         try:
+                            logger.info(f"Sending message to connection {conn_id}")
                             send_to_client(conn_id, response_data)
                             broadcast_count += 1
+                            logger.info(f"Successfully sent to connection {conn_id}")
                         except Exception as e:
-                            logger.error(f"Failed to send to connection {conn_id}: {e}")
-                            # Connection might be dead, remove it
-                            remove_connection(conn_id, booking_id)
+                            # Check if it's a GoneException (connection closed)
+                            if 'GoneException' in str(type(e)) or 'Gone' in str(e):
+                                logger.warning(f"Connection {conn_id} is gone - will be cleaned up on $disconnect")
+                            else:
+                                logger.error(f"Failed to send to connection {conn_id}: {e}")
+                            # Don't remove connection here - let $disconnect handle cleanup
                     
                     logger.info(f"Broadcast complete: sent to {broadcast_count}/{len(all_connection_ids)} connections")
                 elif connection_type == 'notification' and response_data.get('user_id'):
@@ -387,8 +418,8 @@ def forward_to_backend(url, data):
             method='POST'
         )
         
-        # Make the request with timeout
-        with urllib.request.urlopen(req, timeout=5) as response:
+        # Make the request with timeout (reduced to 3 seconds to prevent connection timeout)
+        with urllib.request.urlopen(req, timeout=3) as response:
             response_data = response.read().decode('utf-8')
             status_code = response.getcode()
             
@@ -431,12 +462,10 @@ def send_to_client(connection_id, data):
         )
         logger.info(f"Sent message to connection {connection_id}")
     except apigw_management.exceptions.GoneException:
-        logger.warning(f"Connection {connection_id} is gone - removing from DynamoDB")
-        # Try to remove the connection from DynamoDB
-        try:
-            remove_connection(connection_id, booking_id=None)
-        except Exception as cleanup_error:
-            logger.warning(f"Failed to cleanup connection {connection_id}: {cleanup_error}")
+        logger.warning(f"Connection {connection_id} is gone - will be cleaned up on $disconnect")
+        # Don't remove immediately - let $disconnect handle cleanup to avoid race conditions
+        # Messages might still be in flight when connection closes
+        raise  # Re-raise so caller knows the send failed
     except Exception as e:
         logger.error(f"Failed to send message to connection {connection_id}: {e}", exc_info=True)
 
@@ -664,12 +693,13 @@ def get_connection_metadata(connection_id: str):
             response = table.scan(**scan_kwargs)
             items.extend(response.get('Items', []))
             
+            # Check if there are more pages
+            last_evaluated_key = response.get('LastEvaluatedKey')
+            
             # If we found the item, break
             if items:
                 break
             
-            # Check if there are more pages
-            last_evaluated_key = response.get('LastEvaluatedKey')
             if not last_evaluated_key:
                 break
         

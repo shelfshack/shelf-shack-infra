@@ -161,26 +161,37 @@ def handle_connect(event, connection_id):
     
     # For chat connections, call backend to get initial history
     if connection_type == 'chat' and booking_id and token:
+        logger.info(f"Calling backend for chat connect: booking_id={booking_id}, connection_id={connection_id}")
         try:
+            backend_url = f"{BACKEND_URL}/api/chat/ws/{booking_id}/connect"
+            logger.info(f"Backend URL: {backend_url}")
             backend_response = forward_to_backend(
-                f"{BACKEND_URL}/api/chat/ws/{booking_id}/connect",
+                backend_url,
                 {
                     'connection_id': connection_id,
                     'token': token
                 }
             )
+            logger.info(f"Backend response received: success={backend_response.get('success') if backend_response else False}")
             
             # Send initial history to client
-            if backend_response and backend_response.get('response'):
+            if backend_response and backend_response.get('success') and backend_response.get('response'):
                 response_data = backend_response['response']
+                logger.info(f"Response data keys: {list(response_data.keys())}")
                 if response_data.get('initial'):
-                    # Send initial history
+                    logger.info(f"Sending initial history to connection {connection_id}")
                     send_to_client(connection_id, response_data['initial'])
+                    logger.info(f"Successfully sent initial history to {connection_id}")
+                else:
+                    logger.warning(f"No 'initial' key in response data: {response_data}")
                 if response_data.get('receipt'):
-                    # Send receipt updates if any
+                    logger.info(f"Sending receipt updates to connection {connection_id}")
                     send_to_client(connection_id, response_data['receipt'])
+            else:
+                error_msg = backend_response.get('error', 'Unknown error') if backend_response else 'No response'
+                logger.error(f"Backend call failed or invalid response: {error_msg}")
         except Exception as e:
-            logger.warning(f"Failed to get initial history from backend: {e}")
+            logger.error(f"Failed to get initial history from backend: {e}", exc_info=True)
             # Still accept connection - client can request history separately if needed
     
     # For notification connections, call backend to get initial notifications
@@ -375,17 +386,41 @@ def handle_message(event, connection_id):
 def forward_to_backend(url, data):
     """
     Forward message to backend HTTP endpoint.
+    Uses urllib instead of requests (which isn't available in Lambda by default).
     """
     try:
-        response = requests.post(
+        # Prepare the request
+        json_data = json.dumps(data).encode('utf-8')
+        req = urllib.request.Request(
             url,
-            json=data,
+            data=json_data,
             headers={'Content-Type': 'application/json'},
-            timeout=5
+            method='POST'
         )
-        response.raise_for_status()
-        return {'success': True, 'response': response.json() if response.content else {}}
-    except requests.exceptions.RequestException as e:
+        
+        # Make the request with timeout
+        with urllib.request.urlopen(req, timeout=5) as response:
+            response_data = response.read().decode('utf-8')
+            status_code = response.getcode()
+            
+            if status_code >= 200 and status_code < 300:
+                try:
+                    parsed_response = json.loads(response_data) if response_data else {}
+                    return {'success': True, 'response': parsed_response}
+                except json.JSONDecodeError:
+                    return {'success': True, 'response': {}}
+            else:
+                logger.error(f"Backend request failed with status {status_code}: {response_data}")
+                return {'success': False, 'error': f"HTTP {status_code}"}
+                
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
+        logger.error(f"Backend HTTP error: {e.code} - {error_body}")
+        return {'success': False, 'error': f"HTTP {e.code}: {error_body}"}
+    except urllib.error.URLError as e:
+        logger.error(f"Backend URL error: {e}")
+        return {'success': False, 'error': str(e)}
+    except Exception as e:
         logger.error(f"Backend request failed: {e}")
         return {'success': False, 'error': str(e)}
 
