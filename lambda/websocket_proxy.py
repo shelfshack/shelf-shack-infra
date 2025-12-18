@@ -160,17 +160,15 @@ def handle_connect(event, connection_id):
             # Continue anyway
     
     # For chat connections, call backend to get initial history
-    # IMPORTANT: Return response immediately, then call backend asynchronously
-    # This prevents the connection from timing out while waiting for backend response
+    # IMPORTANT: We need to be fast - call backend and send history before connection closes
+    # The frontend may close connections quickly, so we must send history ASAP
     if connection_type == 'chat' and booking_id and token:
         logger.info(f"Calling backend for chat connect: booking_id={booking_id}, connection_id={connection_id}")
-        # Use a separate execution context to call backend after returning response
-        # Lambda will continue execution after returning, but we need to be fast
         try:
             backend_url = f"{BACKEND_URL}/api/chat/ws/{booking_id}/connect"
             logger.info(f"Backend URL: {backend_url}")
             
-            # Call backend synchronously but with shorter timeout
+            # Call backend synchronously with timeout
             backend_response = forward_to_backend(
                 backend_url,
                 {
@@ -180,7 +178,7 @@ def handle_connect(event, connection_id):
             )
             logger.info(f"Backend response received: success={backend_response.get('success') if backend_response else False}")
             
-            # Send initial history to client immediately
+            # Send initial history to client immediately - this must happen fast!
             if backend_response and backend_response.get('success') and backend_response.get('response'):
                 response_data = backend_response['response']
                 logger.info(f"Response data keys: {list(response_data.keys())}")
@@ -190,7 +188,8 @@ def handle_connect(event, connection_id):
                         send_to_client(connection_id, response_data['initial'])
                         logger.info(f"Successfully sent initial history to {connection_id}")
                     except Exception as send_error:
-                        logger.error(f"Failed to send initial history: {send_error}")
+                        # Connection might be closed - this is OK, frontend will use HTTP fallback
+                        logger.warning(f"Failed to send initial history (connection may be closed): {send_error}")
                 else:
                     logger.warning(f"No 'initial' key in response data: {response_data}")
                 if response_data.get('receipt'):
@@ -198,7 +197,8 @@ def handle_connect(event, connection_id):
                     try:
                         send_to_client(connection_id, response_data['receipt'])
                     except Exception as send_error:
-                        logger.error(f"Failed to send receipt: {send_error}")
+                        # Connection might be closed - this is OK
+                        logger.warning(f"Failed to send receipt (connection may be closed): {send_error}")
             else:
                 error_msg = backend_response.get('error', 'Unknown error') if backend_response else 'No response'
                 logger.error(f"Backend call failed or invalid response: {error_msg}")
@@ -257,7 +257,13 @@ def handle_connect(event, connection_id):
             if backend_response and backend_response.get('response'):
                 response_data = backend_response['response']
                 if response_data.get('initial'):
-                    send_to_client(connection_id, response_data['initial'])
+                    logger.info(f"Sending initial notifications to connection {connection_id}")
+                    try:
+                        send_to_client(connection_id, response_data['initial'])
+                        logger.info(f"Successfully sent initial notifications to {connection_id}")
+                    except Exception as send_error:
+                        # Connection might be closed - this is OK, frontend will use HTTP fallback
+                        logger.warning(f"Failed to send initial notifications (connection may be closed): {send_error}")
         except Exception as e:
             logger.warning(f"Failed to get initial notifications from backend: {e}")
             # Still accept connection
