@@ -104,7 +104,7 @@ app_environment = {
   # ... existing variables ...
   
   # OpenSearch configuration - use NLB DNS name
-  OPENSEARCH_HOST = "<nlb-dns-name>"  # Will be: rentify-dev-opensearch-nlb-xxxxx.elb.us-east-1.amazonaws.com
+  OPENSEARCH_HOST = "<nlb-dns-name>"  # Will be: shelfshack-dev-opensearch-nlb-xxxxx.elb.us-east-1.amazonaws.com
   OPENSEARCH_PORT = "9200"
   OPENSEARCH_USE_SSL = "false"
   OPENSEARCH_VERIFY_CERTS = "false"
@@ -115,7 +115,7 @@ app_environment = {
 ```bash
 aws elbv2 describe-load-balancers \
   --region us-east-1 \
-  --query "LoadBalancers[?LoadBalancerName=='rentify-dev-opensearch-nlb'].DNSName" \
+  --query "LoadBalancers[?LoadBalancerName=='shelfshack-dev-opensearch-nlb'].DNSName" \
   --output text
 ```
 
@@ -228,7 +228,7 @@ Consider adding:
 
 2. Check ECS service logs:
    ```bash
-   aws logs tail /ecs/rentify-dev --follow --region us-east-1
+   aws logs tail /ecs/shelfshack-dev --follow --region us-east-1
    ```
 
 ### OpenSearch Connection Issues
@@ -277,14 +277,14 @@ If your ECS tasks have public IPs (`assign_public_ip = true`):
    ```bash
    # Get task ARN
    TASK_ARN=$(aws ecs list-tasks \
-     --cluster rentify-dev-cluster \
-     --service-name rentify-dev-service \
+     --cluster shelfshack-dev-cluster \
+     --service-name shelfshack-dev-service \
      --query 'taskArns[0]' \
      --output text)
    
    # Get public IP
    aws ecs describe-tasks \
-     --cluster rentify-dev-cluster \
+     --cluster shelfshack-dev-cluster \
      --tasks $TASK_ARN \
      --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
      --output text | xargs -I {} aws ec2 describe-network-interfaces \
@@ -327,7 +327,7 @@ Access services directly from within VPC:
 
 ```bash
 aws ecs execute-command \
-  --cluster rentify-dev-cluster \
+  --cluster shelfshack-dev-cluster \
   --task <task-id> \
   --container <container-name> \
   --interactive \

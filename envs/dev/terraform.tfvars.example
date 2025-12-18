@@ -1,5 +1,5 @@
 aws_region   = "us-east-1"
-project      = "rentify"
+project      = "shelfshack"
 environment  = "dev"
 
 availability_zones = ["us-east-1a", "us-east-1b"]
@@ -27,12 +27,12 @@ force_new_deployment = true
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rentify/dev/db-url:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:123456789012:secret:shelfshack/dev/db-url:DATABASE_URL::"
   }
 ]
 
 # RDS inputs (do not commit real passwords; set TF_VAR_db_master_password via secrets/provider)
-db_master_username       = "rentify"
+db_master_username       = "shelfshack"
 # db_master_password is intentionally unset; provide it via TF_VAR_DB_MASTER_PASSWORD in CI/secrets.
 db_allocated_storage     = 20
 db_engine_version        = "17.6"
@@ -59,3 +59,12 @@ opensearch_ebs_volume_type = "gp3"
 opensearch_enable_cloudwatch_logs = false
 opensearch_log_retention_in_days = 7
 opensearch_create_service_linked_role = true  # Set to false if role already exists in your account
+
+# WebSocket API Gateway and Lambda Configuration
+websocket_stage_name = "development"
+# Path to Lambda source file - adjust based on your directory structure
+# For local: relative path from envs/dev (../../shelf-shack-backend/lambda/websocket_proxy.py)
+# For CI/CD: use absolute path or environment variable
+websocket_lambda_source_file = "../../shelf-shack-backend/lambda/websocket_proxy.py"
+# Optional: Override backend URL (defaults to ALB URL)
+# websocket_backend_url = "https://api.yourdomain.com"

@@ -174,7 +174,7 @@ if [ "$INSTANCE_STATE" = "running" ]; then
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=["echo \"=== DOCKER STATUS ===\"; sudo docker ps -a | grep opensearch || echo \"No opensearch container\"; echo \"\n=== PORT 9200 ===\"; sudo netstat -tlnp 2>/dev/null | grep 9200 || sudo ss -tlnp 2>/dev/null | grep 9200 || echo \"Port 9200 not listening\"; echo \"\n=== DOCKER LOGS (last 20) ===\"; sudo docker logs opensearch --tail 20 2>&1 || echo \"Cannot get logs\""]' \
-    --output-s3-bucket-name "rentify-dev-logs" \
+    --output-s3-bucket-name "shelfshack-dev-logs" \
     --output-s3-key-prefix "ssm-commands" \
     --query 'Command.CommandId' \
     --output text 2>/dev/null || echo "FAILED")

@@ -75,7 +75,7 @@ COMMAND_ID=$(aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunShellScript" \
   --parameters "commands=[$(echo "$COMMANDS" | sed "s/'/\\\\'/g" | awk '{print "\""$0"\""}' | tr '\n' ',' | sed 's/,$//')]" \
-  --output-s3-bucket-name "rentify-dev-logs" \
+  --output-s3-bucket-name "shelfshack-dev-logs" \
   --output-s3-key-prefix "ssm-commands" \
   --query 'Command.CommandId' \
   --output text 2>/dev/null || echo "FAILED")

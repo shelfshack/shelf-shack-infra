@@ -10,8 +10,8 @@ The backend is trying to connect to `localhost:443` (HTTPS) but OpenSearch conta
 Run this command to get the OpenSearch container's private IP:
 
 ```bash
-cd rentify-infra
-./scripts/get_opensearch_endpoint.sh rentify-dev-cluster rentify-dev-opensearch-service us-east-1
+cd shelfshack-infra
+./scripts/get_opensearch_endpoint.sh shelfshack-dev-cluster shelfshack-dev-opensearch-service us-east-1
 ```
 
 Or manually:
@@ -19,15 +19,15 @@ Or manually:
 ```bash
 # Get the task ARN
 TASK_ARN=$(aws ecs list-tasks \
-  --cluster rentify-dev-cluster \
-  --service-name rentify-dev-opensearch-service \
+  --cluster shelfshack-dev-cluster \
+  --service-name shelfshack-dev-opensearch-service \
   --region us-east-1 \
   --query 'taskArns[0]' \
   --output text)
 
 # Get ENI ID
 ENI_ID=$(aws ecs describe-tasks \
-  --cluster rentify-dev-cluster \
+  --cluster shelfshack-dev-cluster \
   --tasks $TASK_ARN \
   --region us-east-1 \
   --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
@@ -76,8 +76,8 @@ terraform apply
 
 #### Option B: Update via AWS Console
 
-1. Go to ECS Console → Clusters → `rentify-dev-cluster`
-2. Click on `rentify-dev-service` (your backend service)
+1. Go to ECS Console → Clusters → `shelfshack-dev-cluster`
+2. Click on `shelfshack-dev-service` (your backend service)
 3. Click "Update" → "Modify task definition"
 4. Add/update environment variables:
    - `OPENSEARCH_HOST` = `<PRIVATE_IP>`
@@ -91,7 +91,7 @@ terraform apply
 ```bash
 # Get current task definition
 aws ecs describe-task-definition \
-  --task-definition rentify-dev-task \
+  --task-definition shelfshack-dev-task \
   --region us-east-1 \
   --query 'taskDefinition' > task-def.json
 
@@ -104,9 +104,9 @@ aws ecs register-task-definition \
 
 # Update service
 aws ecs update-service \
-  --cluster rentify-dev-cluster \
-  --service rentify-dev-service \
-  --task-definition rentify-dev-task:<NEW_REVISION> \
+  --cluster shelfshack-dev-cluster \
+  --service shelfshack-dev-service \
+  --task-definition shelfshack-dev-task:<NEW_REVISION> \
   --region us-east-1
 ```
 
@@ -116,15 +116,15 @@ Check if OpenSearch service is running:
 
 ```bash
 aws ecs describe-services \
-  --cluster rentify-dev-cluster \
-  --services rentify-dev-opensearch-service \
+  --cluster shelfshack-dev-cluster \
+  --services shelfshack-dev-opensearch-service \
   --region us-east-1 \
   --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount}'
 ```
 
 If `runningCount` is 0, check CloudWatch logs:
 ```bash
-aws logs tail /ecs/rentify-dev-opensearch/opensearch --follow --region us-east-1
+aws logs tail /ecs/shelfshack-dev-opensearch/opensearch --follow --region us-east-1
 ```
 
 ### Step 4: Test Connection
@@ -134,17 +134,17 @@ After updating environment variables, test the connection from backend:
 ```bash
 # Get backend task ID
 BACKEND_TASK=$(aws ecs list-tasks \
-  --cluster rentify-dev-cluster \
-  --service-name rentify-dev-service \
+  --cluster shelfshack-dev-cluster \
+  --service-name shelfshack-dev-service \
   --region us-east-1 \
   --query 'taskArns[0]' \
   --output text)
 
 # Execute command in backend container
 aws ecs execute-command \
-  --cluster rentify-dev-cluster \
+  --cluster shelfshack-dev-cluster \
   --task $BACKEND_TASK \
-  --container rentify-dev \
+  --container shelfshack-dev \
   --interactive \
   --command "curl http://$PRIVATE_IP:9200/_cluster/health"
 ```

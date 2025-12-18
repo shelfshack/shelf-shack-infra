@@ -58,14 +58,14 @@ terraform apply -var-file=terraform.tfvars
 ### 3. Restart ECS Service
 ```bash
 aws ecs update-service \
-  --cluster rentify-dev-cluster \
-  --service rentify-dev-service \
+  --cluster shelfshack-dev-cluster \
+  --service shelfshack-dev-service \
   --force-new-deployment
 ```
 
 ### 4. Monitor Logs
 ```bash
-aws logs tail /ecs/rentify-dev --follow
+aws logs tail /ecs/shelfshack-dev --follow
 ```
 
 You should see:

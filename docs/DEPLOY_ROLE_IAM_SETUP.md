@@ -1,8 +1,8 @@
-# IAM Permissions for RentifyDeployRole
+# IAM Permissions for shelfshackDeployRole
 
 ## Overview
 
-The `RentifyDeployRole` used by GitHub Actions needs comprehensive IAM permissions to manage infrastructure via Terraform. This document outlines all required permissions.
+The `shelfshackDeployRole` used by GitHub Actions needs comprehensive IAM permissions to manage infrastructure via Terraform. This document outlines all required permissions.
 
 ## Required Policies
 
@@ -19,13 +19,13 @@ See `policies/deploy-role-iam-ec2-policy.json` for IAM role creation and EC2 ins
 ```bash
 # Attach RDS policy
 aws iam put-role-policy \
-  --role-name RentifyDeployRole \
+  --role-name shelfshackDeployRole \
   --policy-name RDSDeployPermissions \
   --policy-document file://policies/rds-deploy-role-policy.json
 
 # Attach IAM/EC2 policy
 aws iam put-role-policy \
-  --role-name RentifyDeployRole \
+  --role-name shelfshackDeployRole \
   --policy-name IAMEC2DeployPermissions \
   --policy-document file://policies/deploy-role-iam-ec2-policy.json
 ```
@@ -69,9 +69,9 @@ You can merge both policies into a single policy document for easier management.
 ## Resource Restrictions
 
 The IAM policy restricts role creation to resources matching the naming pattern:
-- `arn:aws:iam::*:role/rentify-*`
-- `arn:aws:iam::*:instance-profile/rentify-*`
-- `arn:aws:iam::*:policy/rentify-*`
+- `arn:aws:iam::*:role/shelfshack-*`
+- `arn:aws:iam::*:instance-profile/shelfshack-*`
+- `arn:aws:iam::*:policy/shelfshack-*`
 
 This ensures the role can only create/modify resources for your project.
 
@@ -81,7 +81,7 @@ After attaching the policies, verify permissions:
 
 ```bash
 # Test IAM role creation (dry run)
-aws iam get-role --role-name rentify-dev-test-role 2>&1 || echo "Role doesn't exist (expected)"
+aws iam get-role --role-name shelfshack-dev-test-role 2>&1 || echo "Role doesn't exist (expected)"
 
 # Test EC2 describe (should work)
 aws ec2 describe-instances --max-items 1
@@ -92,7 +92,7 @@ aws rds describe-db-instances --max-items 1
 
 ## Security Best Practices
 
-1. **Least Privilege**: The policies are scoped to specific resource patterns (`rentify-*`)
+1. **Least Privilege**: The policies are scoped to specific resource patterns (`shelfshack-*`)
 2. **Resource Restrictions**: IAM operations are limited to your project's naming convention
 3. **PassRole Conditions**: `iam:PassRole` includes conditions to only pass roles to specific services
 4. **Separate Policies**: Keep policies separate for easier auditing and management
@@ -104,7 +104,7 @@ aws rds describe-db-instances --max-items 1
 **Solution**: Attach the IAM/EC2 policy:
 ```bash
 aws iam put-role-policy \
-  --role-name RentifyDeployRole \
+  --role-name shelfshackDeployRole \
   --policy-name IAMEC2DeployPermissions \
   --policy-document file://policies/deploy-role-iam-ec2-policy.json
 ```
@@ -118,14 +118,16 @@ aws iam put-role-policy \
 **Solution**: Attach the RDS policy:
 ```bash
 aws iam put-role-policy \
-  --role-name RentifyDeployRole \
+  --role-name shelfshackDeployRole \
   --policy-name RDSDeployPermissions \
   --policy-document file://policies/rds-deploy-role-policy.json
 ```
 
 ## Next Steps
 
-1. Attach both policies to `RentifyDeployRole`
+1. Attach both policies to `shelfshackDeployRole`
 2. Retry your Terraform apply
 3. Monitor CloudTrail logs for any additional permission errors
+
+
 

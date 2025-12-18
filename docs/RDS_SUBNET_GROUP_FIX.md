@@ -30,7 +30,7 @@ Since there's no RDS instance using the subnet group yet, we can safely delete a
 2. Delete the existing DB subnet group in AWS:
    ```bash
    aws rds delete-db-subnet-group \
-     --db-subnet-group-name rentify-dev-db-subnets \
+     --db-subnet-group-name shelfshack-dev-db-subnets \
      --region us-east-1
    ```
 
@@ -54,7 +54,7 @@ Terraform will create a new DB subnet group with the correct subnets.
 ### Option 3: Manual AWS Console Deletion
 
 1. Go to AWS Console → RDS → Subnet groups
-2. Find `rentify-dev-db-subnets`
+2. Find `shelfshack-dev-db-subnets`
 3. Delete it (only if no RDS instances are using it)
 4. Run `terraform apply` again
 
@@ -77,11 +77,13 @@ After fixing, verify the subnet group is using the correct VPC:
 
 ```bash
 aws rds describe-db-subnet-groups \
-  --db-subnet-group-name rentify-dev-db-subnets \
+  --db-subnet-group-name shelfshack-dev-db-subnets \
   --region us-east-1 \
   --query 'DBSubnetGroups[0].Subnets[*].[SubnetIdentifier,VpcId]' \
   --output table
 ```
 
 All subnets should show the same VPC ID that matches your current VPC.
+
+
 

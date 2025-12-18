@@ -31,7 +31,7 @@ COMMAND_ID=$(aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["echo \"=== DOCKER STATUS ===\"; sudo docker ps -a | grep opensearch || echo \"No opensearch container\"; echo \"\n=== PORT LISTENING ===\"; sudo netstat -tlnp | grep 9200 || echo \"Port 9200 not listening\"; echo \"\n=== DOCKER LOGS (last 20 lines) ===\"; sudo docker logs opensearch --tail 20 2>&1 || echo \"Cannot get logs\"; echo \"\n=== USER DATA LOG ===\"; sudo tail -30 /var/log/user-data.log 2>&1 || echo \"No user data log\""]' \
-  --output-s3-bucket-name "rentify-dev-logs" \
+  --output-s3-bucket-name "shelfshack-dev-logs" \
   --output-s3-key-prefix "ssm-commands" \
   --query 'Command.CommandId' \
   --output text 2>/dev/null)

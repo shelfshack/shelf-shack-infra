@@ -48,14 +48,14 @@ Wait 5-8 minutes for full initialization.
    ```
 
 2. **Test connection from ECS:**
-   - Check ECS logs: `aws logs tail /ecs/rentify-dev --follow`
+   - Check ECS logs: `aws logs tail /ecs/shelfshack-dev --follow`
    - Should see successful OpenSearch connections
 
 3. **Restart ECS service if needed:**
    ```bash
    aws ecs update-service \
-     --cluster rentify-dev-cluster \
-     --service rentify-dev-service \
+     --cluster shelfshack-dev-cluster \
+     --service shelfshack-dev-service \
      --force-new-deployment
    ```
 

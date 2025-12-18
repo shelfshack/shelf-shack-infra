@@ -118,3 +118,61 @@ output "opensearch_ec2_instance_id" {
   description = "EC2 instance ID running OpenSearch"
   value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].instance_id : null
 }
+
+# WebSocket API Gateway outputs
+output "websocket_api_id" {
+  description = "WebSocket API Gateway ID"
+  value       = aws_apigatewayv2_api.websocket.id
+}
+
+output "websocket_api_endpoint" {
+  description = "WebSocket API Gateway endpoint URL"
+  value       = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+}
+
+output "websocket_lambda_function_arn" {
+  description = "WebSocket Lambda function ARN"
+  value       = module.websocket_lambda.lambda_function_arn
+}
+
+output "websocket_connections_table_name" {
+  description = "DynamoDB table name for WebSocket connections"
+  value       = module.websocket_lambda.dynamodb_table_name
+}
+
+# HTTP API Gateway outputs
+output "http_api_gateway_id" {
+  description = "HTTP API Gateway ID for backend proxy"
+  value       = aws_apigatewayv2_api.backend.id
+}
+
+output "http_api_gateway_endpoint" {
+  description = "HTTP API Gateway endpoint URL"
+  value       = "https://${aws_apigatewayv2_api.backend.id}.execute-api.${var.aws_region}.amazonaws.com/${var.http_api_stage_name}"
+}
+
+output "http_api_integration_uri" {
+  description = "HTTP API Gateway integration URI (backend endpoint)"
+  value       = aws_apigatewayv2_integration.backend.integration_uri
+}
+
+output "ecs_service_public_ip" {
+  description = "Public IP of the ECS service (dynamically fetched)"
+  value       = local.ecs_public_ip
+}
+
+output "backend_url" {
+  description = "Backend URL used by API Gateway and Lambda (dynamically determined)"
+  value       = local.backend_url
+}
+
+# Deploy Role outputs - DISABLED (resources removed)
+# output "deploy_role_arn" {
+#   description = "ARN of the deploy role for CI/CD and Terraform operations"
+#   value       = aws_iam_role.deploy_role.arn
+# }
+
+# output "deploy_role_name" {
+#   description = "Name of the deploy role"
+#   value       = aws_iam_role.deploy_role.name
+# }

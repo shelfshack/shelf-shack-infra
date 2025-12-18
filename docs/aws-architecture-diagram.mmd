@@ -1,0 +1,113 @@
+graph TB
+    subgraph Internet["Internet"]
+        Users["Users"]
+        GitHub["GitHub Actions CI/CD"]
+    end
+
+    subgraph AWS["AWS Cloud us-east-1"]
+        subgraph VPC["VPC shelfshack-dev-vpc 10.0.0.0/16"]
+            subgraph PublicSubnets["Public Subnets 10.0.0.0/24, 10.0.1.0/24"]
+                IGW["Internet Gateway shelfshack-dev-igw"]
+                NAT["NAT Gateway shelfshack-dev-nat"]
+                ALB["Application Load Balancer shelfshack-dev-alb Optional disabled"]
+            end
+
+            subgraph PrivateSubnets["Private Subnets 10.0.10.0/24, 10.0.11.0/24"]
+                subgraph ECS["ECS Fargate"]
+                    ECSCluster["ECS Cluster shelfshack-dev-cluster"]
+                    ECSService["ECS Service shelfshack-dev-service Port 8000"]
+                    ECSTasks["Fargate Tasks CPU 1024, Memory 2048MB"]
+                end
+
+                RDS["RDS PostgreSQL shelfshack-dev-postgres Port 5432"]
+
+                OpenSearchEC2["OpenSearch EC2 m7i-flex.large Port 9200, 9600"]
+
+                Bastion["Bastion Host Disabled"]
+            end
+
+            subgraph VPCEndpoints["VPC Endpoints"]
+                SSMEndpoint["SSM Endpoint"]
+                SSMMessagesEndpoint["SSM Messages Endpoint"]
+                EC2MessagesEndpoint["EC2 Messages Endpoint"]
+            end
+        end
+
+        subgraph API["API Gateway"]
+            HTTPAPI["HTTP API Gateway shelfshack-dev-backend Stage development"]
+            WebSocketAPI["WebSocket API Gateway shelfshack-dev-websocket Stage development"]
+        end
+
+        subgraph Lambda["Lambda Functions"]
+            WebSocketLambda["WebSocket Proxy shelfshack-dev-websocket-proxy"]
+        end
+
+        subgraph Storage["Storage"]
+            ECR["ECR Repository shelfshack-dev-repo"]
+            S3["S3 Bucket shelfshack-dev-uploads Manual"]
+            S3State["S3 State Bucket shelfshack-terraform-state Manual"]
+        end
+
+        subgraph Database["Databases"]
+            DynamoDB["DynamoDB shelfshack-dev-websocket-connections"]
+            DynamoDBLocks["DynamoDB Locks shelfshack-terraform-locks Manual"]
+        end
+
+        subgraph IAM["IAM"]
+            DeployRole["Deploy Role shelfshackDeployRole"]
+            ExecutionRole["Execution Role shelfshack-dev-execution-role"]
+            TaskRole["Task Role shelfshack-dev-task-role"]
+        end
+
+        subgraph Secrets["Secrets Manager"]
+            SecretsManager["Secrets shelfshack"]
+        end
+
+        subgraph Monitoring["CloudWatch"]
+            LogGroups["Log Groups ecs shelfshack-dev aws ecs executioncommand"]
+        end
+
+        subgraph DNS["Route53"]
+            Route53["Route53 Records Optional"]
+        end
+    end
+
+    Users -->|HTTPS HTTP| HTTPAPI
+    Users -->|WSS| WebSocketAPI
+    GitHub -->|Assume Role| DeployRole
+    HTTPAPI -->|Proxy| ECSService
+    WebSocketAPI -->|Invoke| WebSocketLambda
+    WebSocketLambda -->|Connect| ECSService
+    ECSService -->|Query| RDS
+    ECSService -->|Search| OpenSearchEC2
+    ECSService -->|Upload Download| S3
+    ECSService -->|Read Secrets| SecretsManager
+    ALB -.->|Optional| ECSService
+    ECSService -->|Via NAT| IGW
+    ECSService -->|Via VPC Endpoints| SSMEndpoint
+    DeployRole -->|Deploy| ECR
+    DeployRole -->|Manage| ECSCluster
+    DeployRole -->|Manage| RDS
+    ExecutionRole -->|Pull Images| ECR
+    ExecutionRole -->|Read Secrets| SecretsManager
+    TaskRole -->|Access| S3
+    TaskRole -->|Read Secrets| SecretsManager
+    WebSocketLambda -->|Store Connections| DynamoDB
+    WebSocketLambda -->|Proxy to| ECSService
+
+    classDef vpc fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#fff
+    classDef compute fill:#FF6B6B,stroke:#C92A2A,stroke-width:2px,color:#fff
+    classDef storage fill:#51CF66,stroke:#2F9E44,stroke-width:2px,color:#fff
+    classDef network fill:#FFD43B,stroke:#F59F00,stroke-width:2px,color:#000
+    classDef database fill:#845EF7,stroke:#5F3DC4,stroke-width:2px,color:#fff
+    classDef security fill:#FF8787,stroke:#C92A2A,stroke-width:2px,color:#fff
+    classDef api fill:#339AF0,stroke:#1971C2,stroke-width:2px,color:#fff
+
+    class VPC,PublicSubnets,PrivateSubnets vpc
+    class ECSCluster,ECSService,ECSTasks,OpenSearchEC2,Bastion compute
+    class ECR,S3,S3State storage
+    class IGW,NAT,ALB,HTTPAPI,WebSocketAPI,Route53 network
+    class RDS,DynamoDB,DynamoDBLocks database
+    class DeployRole,ExecutionRole,TaskRole,SecretsManager security
+    class HTTPAPI,WebSocketAPI api
+

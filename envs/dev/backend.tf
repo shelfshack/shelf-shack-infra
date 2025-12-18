@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "rentify-terraform-state"
-    key            = "rentify/dev/terraform.tfstate"
+    bucket         = "shelfshack-terraform-state"
+    key            = "shelfshack/dev/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "rentify-terraform-locks"
+    dynamodb_table = "shelfshack-terraform-locks"
     encrypt        = true
   }
 }

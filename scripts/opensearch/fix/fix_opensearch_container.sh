@@ -55,7 +55,7 @@ COMMAND_ID=$(aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunShellScript" \
   --parameters "commands=[\"$DOCKER_CMD\", \"sleep 15\", \"sudo docker ps -a | grep opensearch\", \"sudo docker logs opensearch --tail 30 2>&1 || echo 'Cannot get logs'\", \"sleep 5\", \"curl -f http://localhost:9200/_cluster/health && echo 'Health check passed' || echo 'Health check failed'\"]" \
-  --output-s3-bucket-name "rentify-dev-logs" \
+  --output-s3-bucket-name "shelfshack-dev-logs" \
   --output-s3-key-prefix "ssm-commands" \
   --query 'Command.CommandId' \
   --output text 2>/dev/null || echo "FAILED")

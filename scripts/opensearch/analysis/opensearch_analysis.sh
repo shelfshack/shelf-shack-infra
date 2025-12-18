@@ -27,7 +27,7 @@ else
   echo "   Instance ID not found in Terraform outputs"
   echo "   Searching for instance by tag..."
   aws ec2 describe-instances \
-    --filters "Name=tag:Name,Values=rentify-dev-opensearch-ec2" \
+    --filters "Name=tag:Name,Values=shelfshack-dev-opensearch-ec2" \
     --query 'Reservations[0].Instances[0].[InstanceId,State.Name,PrivateIpAddress]' \
     --output table
 fi

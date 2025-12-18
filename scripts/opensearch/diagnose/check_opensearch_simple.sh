@@ -12,7 +12,7 @@ if [ -z "$INSTANCE_ID" ] || [[ "$INSTANCE_ID" == *"Warning"* ]] || [[ "$INSTANCE
   echo "Trying to get it from AWS directly..."
   # Try to get it from AWS
   INSTANCE_ID=$(aws ec2 describe-instances \
-    --filters "Name=tag:Name,Values=rentify-dev-opensearch-ec2" "Name=instance-state-name,Values=running" \
+    --filters "Name=tag:Name,Values=shelfshack-dev-opensearch-ec2" "Name=instance-state-name,Values=running" \
     --query 'Reservations[0].Instances[0].InstanceId' \
     --output text 2>/dev/null)
   

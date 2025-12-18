@@ -5,9 +5,31 @@ locals {
     Module = "ecs-service"
   })
 
+  # Extract secret ARNs from value_from (which may include version/key suffix like :key::)
+  # Format examples:
+  #   arn:aws:secretsmanager:region:account:secret:name-suffix
+  #   arn:aws:secretsmanager:region:account:secret:name-suffix:key::
+  # We extract the base ARN (everything before the first : after the secret name)
+  # This is the actual secret ARN that IAM needs permission for
+  # Extract secret ARNs from value_from (which may include version/key suffix like :key::)
+  # AWS Secrets Manager adds random suffixes (e.g., -9ixzM1, -ft3urj, -3u8sxy, -aZhag9) that don't match value_from
+  # We extract the ARN and replace the suffix part with -* to match any suffix for IAM policy
+  # Note: If value_from already has wildcard (-*), use it as-is; otherwise replace suffix with -*
   secret_arns = [
     for secret in var.secrets :
-    regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from)
+    # Extract ARN up to first colon after secret name
+    # Check if already has wildcard, otherwise find and replace suffix pattern
+    length(regexall("-\\*$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))) > 0 ?
+      # Already has wildcard, use as-is
+      regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from) :
+      # Find suffix pattern and replace with -*, or append -* if no suffix found
+      length(regexall("-[A-Za-z0-9]{6}$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))) > 0 ?
+        replace(
+          regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from),
+          regexall("-[A-Za-z0-9]{6}$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))[0],
+          "-*"
+        ) :
+        "${regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from)}-*"
   ]
 
   use_alb = var.enable_load_balancer
@@ -206,6 +228,28 @@ resource "aws_iam_role_policy" "task_opensearch" {
   name   = "${var.name}-task-opensearch-access"
   role   = aws_iam_role.task.id
   policy = data.aws_iam_policy_document.task_opensearch[0].json
+}
+
+# Secrets Manager access policy for task role (for runtime secret access)
+# Only create if secrets are provided
+data "aws_iam_policy_document" "task_secrets" {
+  count = length(local.secret_arns) > 0 ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret"
+    ]
+    resources = local.secret_arns
+  }
+}
+
+resource "aws_iam_role_policy" "task_secrets" {
+  count  = length(local.secret_arns) > 0 ? 1 : 0
+  name   = "${var.name}-task-secrets-access"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_secrets[0].json
 }
 
 resource "aws_security_group" "alb" {

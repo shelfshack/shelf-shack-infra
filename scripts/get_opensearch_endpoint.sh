@@ -3,8 +3,8 @@
 
 set -e
 
-CLUSTER_NAME="${1:-rentify-dev-cluster}"
-SERVICE_NAME="${2:-rentify-dev-opensearch-service}"
+CLUSTER_NAME="${1:-shelfshack-dev-cluster}"
+SERVICE_NAME="${2:-shelfshack-dev-opensearch-service}"
 REGION="${3:-us-east-1}"
 
 echo "Getting OpenSearch service endpoint..."
