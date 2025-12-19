@@ -6,7 +6,7 @@ variable "aws_region" {
 variable "project" {
   description = "Project name used for tagging and resource naming."
   type        = string
-  default     = "rentify"
+  default     = "shelfshack"
 }
 
 variable "environment" {

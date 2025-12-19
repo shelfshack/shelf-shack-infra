@@ -52,7 +52,7 @@ CONTAINER_NAME=$(aws ecs describe-tasks \
   --output text 2>/dev/null || echo "")
 
 if [ -z "$CONTAINER_NAME" ]; then
-  CONTAINER_NAME=$(terraform output -raw service_name 2>/dev/null | sed 's/-service$//' || echo "rentify-dev")
+  CONTAINER_NAME=$(terraform output -raw service_name 2>/dev/null | sed 's/-service$//' || echo "shelfshack-dev")
 fi
 
 echo "Container: $CONTAINER_NAME"

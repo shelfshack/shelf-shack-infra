@@ -131,7 +131,7 @@ Check backend logs for OpenSearch fallback messages:
 
 ```bash
 # View ECS service logs
-aws logs tail /ecs/rentify-dev --follow --region us-east-1
+aws logs tail /ecs/shelfshack-dev --follow --region us-east-1
 
 # Look for messages like:
 # "OpenSearch unavailable, falling back to PostgreSQL for search"

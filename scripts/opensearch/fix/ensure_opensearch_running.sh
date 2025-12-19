@@ -88,7 +88,7 @@ COMMAND_ID=$(aws ssm send-command \
     \"sleep 5\",
     \"${HEALTH_CMD}\"
   ]" \
-  --output-s3-bucket-name "rentify-dev-logs" \
+  --output-s3-bucket-name "shelfshack-dev-logs" \
   --output-s3-key-prefix "ssm-commands" \
   --query 'Command.CommandId' \
   --output text 2>/dev/null || echo "FAILED")
@@ -129,4 +129,4 @@ echo "1. Wait 1-2 minutes for OpenSearch to fully initialize"
 echo "2. Test connection: curl http://${OPENSEARCH_IP}:9200/_cluster/health"
 echo "3. Check ECS logs for successful connections"
 echo "4. If still failing, restart ECS service:"
-echo "   aws ecs update-service --cluster rentify-dev-cluster --service rentify-dev-service --force-new-deployment"
+echo "   aws ecs update-service --cluster shelfshack-dev-cluster --service shelfshack-dev-service --force-new-deployment"

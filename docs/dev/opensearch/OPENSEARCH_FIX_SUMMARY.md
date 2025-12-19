@@ -62,14 +62,14 @@ Since security is now disabled, you may want to remove OPENSEARCH_USERNAME and O
 ### Step 5: Restart ECS Service
 ```bash
 aws ecs update-service \
-  --cluster rentify-dev-cluster \
-  --service rentify-dev-service \
+  --cluster shelfshack-dev-cluster \
+  --service shelfshack-dev-service \
   --force-new-deployment
 ```
 
 ### Step 6: Monitor Logs
 ```bash
-aws logs tail /ecs/rentify-dev --follow
+aws logs tail /ecs/shelfshack-dev --follow
 ```
 
 ## FastAPI Configuration Check

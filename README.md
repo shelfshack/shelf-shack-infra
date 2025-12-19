@@ -182,7 +182,7 @@ If you need to force the ECS tasks into a specific subnet set regardless of the 
 
 Next Steps
 
-Copy rentify-infra/envs/dev/backend.tf.example and terraform.tfvars.example, fill in real state bucket/DynamoDB/table names plus image/env values, then run terraform fmt -recursive, terraform init, and terraform apply -var-file=terraform.tfvars.
+Copy shelfshack-infra/envs/dev/backend.tf.example and terraform.tfvars.example, fill in real state bucket/DynamoDB/table names plus image/env values, then run terraform fmt -recursive, terraform init, and terraform apply -var-file=terraform.tfvars.
 Create the GitHub secrets (AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECR_REPOSITORY, INFRA_REPOSITORY, INFRA_REPO_TOKEN), ensure the deploy role trusts GitHub’s OIDC provider, and trigger .github/workflows/deploy.yml via a manual dispatch to verify the end-to-end deployment.
 Replicate envs/dev for staging/prod as needed and consider adding autoscaling policies or per-environment overrides in Terraform once the initial Fargate stack is confirmed.
 
@@ -190,13 +190,13 @@ Replicate envs/dev for staging/prod as needed and consider adding autoscaling po
 
 Infra Automation Plan
 
-Use a separate rentify-infra repo to hold Terraform or CDK stacks so app and infra release cycles stay decoupled. Keep backend repo focused on code/tests while infra repo owns ECS/Fargate stacks, IAM, networking, etc.
-Step 1: Define baseline AWS networking (VPC, subnets, security groups) via IaC (rentify-infra). Include ECS Cluster, IAM roles (task execution, task role, deployment role), Log groups, ECR repos, and shared parameters (Secrets Manager/SSM).
+Use a separate shelfshack-infra repo to hold Terraform or CDK stacks so app and infra release cycles stay decoupled. Keep backend repo focused on code/tests while infra repo owns ECS/Fargate stacks, IAM, networking, etc.
+Step 1: Define baseline AWS networking (VPC, subnets, security groups) via IaC (shelfshack-infra). Include ECS Cluster, IAM roles (task execution, task role, deployment role), Log groups, ECR repos, and shared parameters (Secrets Manager/SSM).
 Step 2: Model ECS task definition, Fargate service, autoscaling policies, and ALB/NLB listeners + target groups in the infra repo. Use Terraform modules or CDK constructs to keep definitions versioned and reproducible.
 Step 3: In the app repo, add CI (GitHub Actions/GitLab/etc.) with these stages:
 Build & test.
 Build Docker image, tag with commit SHA, push to ECR.
-Trigger infra deploy (either call Terraform Cloud/Atlantis pipeline in rentify-infra, or run Terraform plan/apply with workspace credentials). Pass new image tag via SSM parameter or Terraform variable to update task definition.
+Trigger infra deploy (either call Terraform Cloud/Atlantis pipeline in shelfshack-infra, or run Terraform plan/apply with workspace credentials). Pass new image tag via SSM parameter or Terraform variable to update task definition.
 Run aws ecs update-service --force-new-deployment once Terraform updates the task definition revision.
 Step 4: Automate MR→main integration:
 Require successful CI + security scans before merge.
@@ -210,27 +210,27 @@ Step 7: Observability & rollbacks:
 CloudWatch logs/metrics, ECS service alarms, deployment circuit breakers.
 Store previous task definition/AMI versions for quick rollback.
 Step 8: Governance:
-Protect rentify-infra main branch; require review on Terraform changes.
+Protect shelfshack-infra main branch; require review on Terraform changes.
 Optionally, integrate Atlantis/Terraform Cloud for PR plans & applies.
 
 
 
 
 --------------------------
-Backend Repo (rentify-backend)
+Backend Repo (shelfshack-backend)
 
 README.md (line 8) documents the GitHub Actions workflow requirements; populate these secrets/vars in the repo settings → Secrets and variables → Actions:
 AWS_REGION: e.g. us-east-1.
 AWS_DEPLOY_ROLE_ARN: IAM role GitHub can assume via OIDC.
-ECR_REPOSITORY: full repo URI (123456789012.dkr.ecr.us-east-1.amazonaws.com/rentify-dev).
-INFRA_REPOSITORY: owner/rentify-infra.
+ECR_REPOSITORY: full repo URI (123456789012.dkr.ecr.us-east-1.amazonaws.com/shelfshack-dev).
+INFRA_REPOSITORY: owner/shelfshack-infra.
 INFRA_REPO_TOKEN: classic PAT or fine-grained token with read rights on the infra repo.
 If you keep a .env for local runs, update it with the same SSM/Secrets Manager ARNs you’ll wire in Terraform so local FastAPI points at the same resources (DB URL, Redis endpoints, etc.).
-Infra Repo (rentify-infra)
+Infra Repo (shelfshack-infra)
 
 State backend
 
-envs/dev/backend.tf.example (line 1): copy to backend.tf and set an S3 bucket + DynamoDB table you create in AWS (e.g., bucket rentify-terraform-state, table rentify-terraform-locks with LockID primary key). Terraform needs permissions to read/write both.
+envs/dev/backend.tf.example (line 1): copy to backend.tf and set an S3 bucket + DynamoDB table you create in AWS (e.g., bucket shelfshack-terraform-state, table shelfshack-terraform-locks with LockID primary key). Terraform needs permissions to read/write both.
 Environment variables
 
 envs/dev/terraform.tfvars.example (line 1): copy to terraform.tfvars and fill in:
@@ -245,7 +245,7 @@ envs/dev/variables.tf (line 1) shows every input; adjust defaults if dev/stage/p
 If you plan to serve HTTPS, request/validate an ACM certificate and set enable_https=true + certificate_arn=<your cert> either in terraform.tfvars or via environment-specific override.
 IAM + roles
 
-Create IAM role for GitHub Actions (e.g., RentifyDeployRole). Trust policy must allow your GitHub organisation's OIDC provider (token.actions.githubusercontent.com) with conditions on repo/branch. Attach permissions:
+Create IAM role for GitHub Actions (e.g., shelfshackDeployRole). Trust policy must allow your GitHub organisation's OIDC provider (token.actions.githubusercontent.com) with conditions on repo/branch. Attach permissions:
 ECR push/pull (ecr:* on repo).
 ECS + Application Load Balancer + CloudWatch Logs creation/updates.
 RDS permissions for managing PostgreSQL instances and DB subnet groups (see `policies/rds-deploy-role-policy.json`).

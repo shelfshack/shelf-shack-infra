@@ -291,3 +291,5 @@ sudo docker logs -f opensearch
    - Monitor EC2 instance metrics
    - Adjust instance type or heap size if needed
 
+
+

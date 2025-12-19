@@ -52,7 +52,7 @@ Since both services are in the same VPC, you have a few options:
 
 3. **Service Name (if service discovery is configured)**
    - Use the ECS service name directly
-   - Format: `rentify-dev-opensearch-service`
+   - Format: `shelfshack-dev-opensearch-service`
 
 ## Connecting to OpenSearch
 

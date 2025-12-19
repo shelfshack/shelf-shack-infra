@@ -72,8 +72,8 @@ terraform apply -var-file=terraform.tfvars
 5. Restart ECS:
    ```bash
    aws ecs update-service \
-     --cluster rentify-dev-cluster \
-     --service rentify-dev-service \
+     --cluster shelfshack-dev-cluster \
+     --service shelfshack-dev-service \
      --force-new-deployment
    ```
 
