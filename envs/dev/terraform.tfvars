@@ -1,5 +1,5 @@
 aws_region   = "us-east-1"
-project      = "rentify"
+project      = "shelfshack"
 environment  = "dev"
 
 availability_zones = ["us-east-1a", "us-east-1b"]
@@ -24,18 +24,22 @@ route53_zone_id     = null
 route53_record_name = null
 
 app_environment = {
-  NODE_ENV = "production"
+  NODE_ENV = "development"
   DB_MANAGE_COMMAND = "--create --bootstrap"
   DB_BOOTSTRAP = "true"
   SYNC_MISSING_TO_OPENSEARCH="true"
   PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
-  S3_BUCKET_NAME="rentify-dev-uploads"
+  S3_BUCKET_NAME="shelfshack-dev-uploads"
   S3_REGION="us-east-1"
-  S3_PUBLIC_BASE_URL="https://rentify-dev-uploads.s3.us-east-1.amazonaws.com/"
+  S3_PUBLIC_BASE_URL="https://shelfshack-dev-uploads.s3.us-east-1.amazonaws.com/"
   S3_PROFILE_PREFIX="profile_photos"
   S3_ITEM_PREFIX="item_images"
   S3_USE_PATH_STYLE="false"
   ACCESS_TOKEN_EXPIRE_MINUTES=30
+  
+  # Note: WebSocket notification broadcasting variables (CONNECTIONS_TABLE, WEBSOCKET_API_ENDPOINT, AWS_REGION)
+  # are automatically set in main.tf from the websocket_lambda module and API Gateway resources.
+  # You don't need to set them here in terraform.tfvars.
 }
 
 force_new_deployment = true
@@ -43,7 +47,7 @@ force_new_deployment = true
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:rentify/db_url-9ixzM1:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/db_url-ft3urj:DATABASE_URL::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
@@ -72,6 +76,10 @@ app_secrets = [
   {
     name       = "FRONTEND_BASE_URL"
     value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:FRONTEND_BASE_URL::"
+  },
+  {
+    name       = "STRIPE_SECRET_KEY"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:stripe_secret_key-Fw4ydT:STRIPE_SECRET_KEY::"
   }
 ]
 
@@ -90,7 +98,7 @@ db_publicly_accessible   = false
 
 # Replace ACCOUNT_ID with your AWS account ID
 opensearch_iam_role_arns = [
-  "arn:aws:iam::506852294788:role/RentDeployRole"
+  "arn:aws:iam::506852294788:role/shelfshackDeployRole"
 ]
 
 # Optional: Add your IP for Kibana access (leave empty if not needed)
@@ -109,3 +117,13 @@ opensearch_ec2_image   = "opensearchproject/opensearch"
 opensearch_ec2_version = "2.11.0"
 opensearch_ec2_instance_type = "m7i-flex.large"  # 8GB RAM, 2 vCPU (BEST FREE TIER option!)
 opensearch_ec2_java_heap_size = "2g"  # Optimal heap for m7i-flex.large (8GB RAM)
+
+# WebSocket API Gateway and Lambda Configuration
+websocket_stage_name = "development"
+# Path to Lambda source file - relative path from envs/dev directory
+# Lambda code is now part of the infra repo at: ../../lambda/websocket_proxy.py
+websocket_lambda_source_file = "../../lambda/websocket_proxy.py"
+# Path to Lambda requirements.txt - relative path from envs/dev directory
+websocket_lambda_requirements_file = "../../lambda/requirements.txt"
+# Optional: Override backend URL (defaults to ALB URL if available)
+# websocket_backend_url = "https://api.yourdomain.com"

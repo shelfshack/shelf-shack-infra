@@ -110,12 +110,12 @@ EOF
 
 # Attach as inline policy to the task role
 aws iam put-role-policy \
-  --role-name rentify-dev-task-role \
+  --role-name shelfshack-dev-task-role \
   --policy-name opensearch-access \
   --policy-document file://opensearch-policy.json
 ```
 
-Replace `rentify-dev-task-role` with your actual task role name.
+Replace `shelfshack-dev-task-role` with your actual task role name.
 
 ## Verification
 
@@ -123,12 +123,12 @@ After applying the Terraform changes, verify the policy is attached:
 
 ```bash
 # List inline policies on the task role
-aws iam list-role-policies --role-name rentify-dev-task-role
+aws iam list-role-policies --role-name shelfshack-dev-task-role
 
 # Get the policy document
 aws iam get-role-policy \
-  --role-name rentify-dev-task-role \
-  --policy-name rentify-dev-task-opensearch-access
+  --role-name shelfshack-dev-task-role \
+  --policy-name shelfshack-dev-task-opensearch-access
 ```
 
 ## Security Notes

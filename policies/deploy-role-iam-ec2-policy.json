@@ -44,9 +44,9 @@
         "iam:SimulateCustomPolicy"
       ],
       "Resource": [
-        "arn:aws:iam::*:role/rentify-*",
-        "arn:aws:iam::*:instance-profile/rentify-*",
-        "arn:aws:iam::*:policy/rentify-*"
+        "arn:aws:iam::*:role/shelfshack-*",
+        "arn:aws:iam::*:instance-profile/shelfshack-*",
+        "arn:aws:iam::*:policy/shelfshack-*"
       ]
     },
     {

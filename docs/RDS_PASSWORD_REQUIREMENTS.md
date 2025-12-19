@@ -59,13 +59,13 @@ db_master_password = "RohitSajud1234!"
 1. Create a secret in AWS Secrets Manager:
    ```bash
    aws secretsmanager create-secret \
-     --name rentify-dev/rds-password \
+     --name shelfshack-dev/rds-password \
      --secret-string '{"password":"RohitSajud1234!"}'
    ```
 
 2. Get the secret ARN and add to `terraform.tfvars`:
    ```hcl
-   db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:rentify-dev/rds-password-XXXXX"
+   db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:shelfshack-dev/rds-password-XXXXX"
    ```
 
 ## Password Examples
@@ -119,4 +119,6 @@ To change the password of an existing RDS instance:
 3. Run `terraform apply`
 
 The password change will trigger an RDS instance modification.
+
+
 

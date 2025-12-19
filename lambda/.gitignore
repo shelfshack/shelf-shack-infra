@@ -1,0 +1,40 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Installed packages (will be installed during Lambda packaging)
+boto3/
+botocore/
+certifi/
+charset_normalizer/
+dateutil/
+idna/
+jmespath/
+requests/
+s3transfer/
+urllib3/
+*.dist-info/
+bin/
+
+# Lambda deployment artifacts
+*.zip
+websocket_proxy.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*~
+* 2.*
+* 3.*
+* 4.*
+

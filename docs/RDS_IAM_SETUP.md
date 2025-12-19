@@ -2,12 +2,12 @@
 
 ## Problem
 
-When deploying RDS resources via Terraform using the `RentifyDeployRole` (or similar GitHub Actions deployment role), you may encounter the following error:
+When deploying RDS resources via Terraform using the `shelfshackDeployRole` (or similar GitHub Actions deployment role), you may encounter the following error:
 
 ```
 Error: updating RDS DB Subnet Group (...): operation error RDS: ModifyDBSubnetGroup, 
 https response error StatusCode: 403, RequestID: ..., api error AccessDenied: 
-User: arn:aws:sts::ACCOUNT:assumed-role/RentifyDeployRole/GitHubActions is not authorized 
+User: arn:aws:sts::ACCOUNT:assumed-role/shelfshackDeployRole/GitHubActions is not authorized 
 to perform: rds:ModifyDBSubnetGroup on resource: arn:aws:rds:REGION:ACCOUNT:subgrp:...
 ```
 
@@ -19,7 +19,7 @@ Attach the RDS permissions policy to your deployment role. A complete policy doc
 
 ### Option 1: Attach Policy via AWS Console
 
-1. Navigate to IAM → Roles → `RentifyDeployRole`
+1. Navigate to IAM → Roles → `shelfshackDeployRole`
 2. Click "Add permissions" → "Create inline policy" or "Attach policies"
 3. Use the JSON editor and paste the contents of `policies/rds-deploy-role-policy.json`
 4. Review and save the policy
@@ -29,14 +29,14 @@ Attach the RDS permissions policy to your deployment role. A complete policy doc
 ```bash
 # Create the policy
 aws iam put-role-policy \
-  --role-name RentifyDeployRole \
+  --role-name shelfshackDeployRole \
   --policy-name RDSDeployPermissions \
   --policy-document file://policies/rds-deploy-role-policy.json
 ```
 
 ### Option 3: Attach Policy via Terraform (if managing the role in Terraform)
 
-If you manage the `RentifyDeployRole` in Terraform, you can attach the policy like this:
+If you manage the `shelfshackDeployRole` in Terraform, you can attach the policy like this:
 
 ```hcl
 data "aws_iam_policy_document" "rds_deploy" {
@@ -84,7 +84,7 @@ After attaching the policy, verify the permissions by running:
 aws rds describe-db-subnet-groups --region us-east-1
 
 # Or test with the assumed role
-aws sts assume-role --role-arn arn:aws:iam::ACCOUNT:role/RentifyDeployRole --role-session-name test
+aws sts assume-role --role-arn arn:aws:iam::ACCOUNT:role/shelfshackDeployRole --role-session-name test
 ```
 
 Then retry your Terraform apply operation.

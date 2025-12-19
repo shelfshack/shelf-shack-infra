@@ -50,7 +50,7 @@ COMMAND_ID=$(aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["echo \"=== DOCKER STATUS ===\"; sudo docker ps -a; echo \"\n=== PORT 9200 ===\"; sudo netstat -tlnp 2>/dev/null | grep 9200 || echo \"Port 9200 not listening\"; echo \"\n=== DOCKER LOGS (last 30) ===\"; sudo docker logs opensearch --tail 30 2>&1 || echo \"Container not found or cannot get logs\""]' \
-  --output-s3-bucket-name "rentify-dev-logs" \
+  --output-s3-bucket-name "shelfshack-dev-logs" \
   --output-s3-key-prefix "ssm-commands" \
   --query 'Command.CommandId' \
   --output text 2>/dev/null)

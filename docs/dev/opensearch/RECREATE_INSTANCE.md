@@ -48,14 +48,14 @@ curl http://${OPENSEARCH_IP}:9200/_cluster/health
 After OpenSearch is running, restart ECS to pick up the connection:
 ```bash
 aws ecs update-service \
-  --cluster rentify-dev-cluster \
-  --service rentify-dev-service \
+  --cluster shelfshack-dev-cluster \
+  --service shelfshack-dev-service \
   --force-new-deployment
 ```
 
 ### 6. Monitor Logs
 ```bash
-aws logs tail /ecs/rentify-dev --follow
+aws logs tail /ecs/shelfshack-dev --follow
 ```
 
 You should see successful OpenSearch connections instead of "Connection refused" errors.
