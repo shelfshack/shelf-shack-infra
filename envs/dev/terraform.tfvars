@@ -98,7 +98,7 @@ db_publicly_accessible   = false
 
 # Replace ACCOUNT_ID with your AWS account ID
 opensearch_iam_role_arns = [
-  "arn:aws:iam::506852294788:role/RentDeployRole"
+  "arn:aws:iam::506852294788:role/shelfshackDeployRole"
 ]
 
 # Optional: Add your IP for Kibana access (leave empty if not needed)
