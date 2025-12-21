@@ -176,3 +176,14 @@ output "backend_url" {
 #   description = "Name of the deploy role"
 #   value       = aws_iam_role.deploy_role.name
 # }
+
+# Amplify Branch outputs
+output "amplify_dev_branch_arn" {
+  description = "ARN of the Amplify development branch"
+  value       = var.amplify_app_id != null ? aws_amplify_branch.development[0].arn : null
+}
+
+output "amplify_dev_branch_environment_variables" {
+  description = "Environment variables set on Amplify development branch"
+  value       = var.amplify_app_id != null ? aws_amplify_branch.development[0].environment_variables : null
+}

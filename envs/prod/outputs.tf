@@ -77,6 +77,61 @@ output "api_endpoint" {
   value       = try(var.domain_name != null && var.enable_load_balancer ? "https://${var.api_subdomain}.${var.domain_name}" : null, null)
 }
 
+# HTTP API Gateway outputs
+output "http_api_gateway_id" {
+  description = "HTTP API Gateway ID for backend API"
+  value       = aws_apigatewayv2_api.backend.id
+}
+
+output "http_api_gateway_endpoint" {
+  description = "HTTP API Gateway endpoint URL"
+  value       = "https://${aws_apigatewayv2_api.backend.id}.execute-api.${var.aws_region}.amazonaws.com/${var.http_api_stage_name}"
+}
+
+output "http_api_integration_uri" {
+  description = "HTTP API Gateway integration URI (backend URL)"
+  value       = local.backend_url
+}
+
+# ECS Service Public IP (when ALB is disabled)
+output "ecs_service_public_ip" {
+  description = "Public IP of the ECS service task (only when ALB is disabled)"
+  value       = local.ecs_public_ip
+}
+
+# Backend URL
+output "backend_url" {
+  description = "Backend URL used by API Gateway and Lambda (dynamically determined)"
+  value       = local.backend_url
+}
+
+# Deploy Role
+output "deploy_role_arn" {
+  description = "ARN of the IAM deploy role"
+  value       = aws_iam_role.deploy_role.arn
+}
+
+output "deploy_role_name" {
+  description = "Name of the IAM deploy role"
+  value       = aws_iam_role.deploy_role.name
+}
+
+# OpenSearch EC2 outputs
+output "opensearch_ec2_endpoint" {
+  description = "OpenSearch HTTP endpoint on EC2 (http://private_ip:9200)"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_endpoint : null
+}
+
+output "opensearch_ec2_host" {
+  description = "OpenSearch host (private IP) for use in OPENSEARCH_HOST env var"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_host : null
+}
+
+output "opensearch_ec2_instance_id" {
+  description = "EC2 instance ID running OpenSearch"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].instance_id : null
+}
+
 # OpenSearch endpoints (DISABLED)
 # output "opensearch_endpoint" {
 #   description = "OpenSearch endpoint URL (internal, VPC-only). Use NLB DNS name for backend configuration."
@@ -103,18 +158,34 @@ output "search_backend" {
   value       = var.enable_opensearch_ec2 ? "OpenSearch on EC2" : "PostgreSQL (OpenSearch disabled)"
 }
 
-# OpenSearch EC2 outputs
-output "opensearch_ec2_endpoint" {
-  description = "OpenSearch HTTP endpoint on EC2 (http://private_ip:9200)"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_endpoint : null
+# WebSocket API Gateway outputs
+output "websocket_api_id" {
+  description = "WebSocket API Gateway ID"
+  value       = aws_apigatewayv2_api.websocket.id
 }
 
-output "opensearch_ec2_host" {
-  description = "OpenSearch host (private IP) for use in OPENSEARCH_HOST env var"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_host : null
+output "websocket_api_endpoint" {
+  description = "WebSocket API Gateway endpoint URL"
+  value       = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
 }
 
-output "opensearch_ec2_instance_id" {
-  description = "EC2 instance ID running OpenSearch"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].instance_id : null
+output "websocket_lambda_function_arn" {
+  description = "WebSocket Lambda function ARN"
+  value       = module.websocket_lambda.lambda_function_arn
+}
+
+output "websocket_connections_table_name" {
+  description = "DynamoDB table name for WebSocket connections"
+  value       = module.websocket_lambda.dynamodb_table_name
+}
+
+# Amplify Branch outputs
+output "amplify_prod_branch_arn" {
+  description = "ARN of the Amplify production branch"
+  value       = var.amplify_app_id != null ? aws_amplify_branch.production[0].arn : null
+}
+
+output "amplify_prod_branch_environment_variables" {
+  description = "Environment variables set on Amplify production branch"
+  value       = var.amplify_app_id != null ? aws_amplify_branch.production[0].environment_variables : null
 }

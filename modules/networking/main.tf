@@ -116,8 +116,11 @@ resource "aws_route" "public_internet_access" {
 }
 
 resource "aws_route_table_association" "public" {
-  for_each       = aws_subnet.public
-  subnet_id      = each.value.id
+  for_each = {
+    for idx, cidr in var.public_subnet_cidrs :
+    tostring(idx) => cidr
+  }
+  subnet_id      = aws_subnet.public[each.key].id
   route_table_id = aws_route_table.public.id
 }
 
@@ -137,8 +140,11 @@ resource "aws_route" "private_outbound" {
 }
 
 resource "aws_route_table_association" "private" {
-  for_each       = aws_subnet.private
-  subnet_id      = each.value.id
+  for_each = {
+    for idx, cidr in var.private_subnet_cidrs :
+    tostring(idx) => cidr
+  }
+  subnet_id      = aws_subnet.private[each.key].id
   route_table_id = aws_route_table.private.id
 }
 

@@ -16,22 +16,35 @@ locals {
   # AWS Secrets Manager adds random suffixes (e.g., -9ixzM1, -ft3urj, -3u8sxy, -aZhag9) that don't match value_from
   # We extract the ARN and replace the suffix part with -* to match any suffix for IAM policy
   # Note: If value_from already has wildcard (-*), use it as-is; otherwise replace suffix with -*
-  secret_arns = [
-    for secret in var.secrets :
-    # Extract ARN up to first colon after secret name
-    # Check if already has wildcard, otherwise find and replace suffix pattern
-    length(regexall("-\\*$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))) > 0 ?
-      # Already has wildcard, use as-is
-      regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from) :
-      # Find suffix pattern and replace with -*, or append -* if no suffix found
-      length(regexall("-[A-Za-z0-9]{6}$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))) > 0 ?
-        replace(
-          regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from),
-          regexall("-[A-Za-z0-9]{6}$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))[0],
-          "-*"
-        ) :
-        "${regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from)}-*"
-  ]
+  secret_arns = concat(
+    [
+      for secret in var.secrets :
+      # Extract ARN up to first colon after secret name
+      # Check if already has wildcard, otherwise find and replace suffix pattern
+      length(regexall("-\\*$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))) > 0 ?
+        # Already has wildcard, use as-is
+        regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from) :
+        # Find suffix pattern and replace with -*, or append -* if no suffix found
+        length(regexall("-[A-Za-z0-9]{6}$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))) > 0 ?
+          replace(
+            regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from),
+            regexall("-[A-Za-z0-9]{6}$", regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from))[0],
+            "-*"
+          ) :
+          "${regex("^arn:aws:secretsmanager:[^:]+:[^:]+:secret:[^:]+", secret.value_from)}-*"
+    ],
+    # Add additional secret patterns that the application might access by name
+    # These are common secrets that might be accessed directly by name
+    [
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:google_api_client_id-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:google-client-id-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:google_api_key-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:stripe_secret_key-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:stripe-secret-key-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:stripe_key-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:stripe_api_key-*"
+    ]
+  )
 
   use_alb = var.enable_load_balancer
 

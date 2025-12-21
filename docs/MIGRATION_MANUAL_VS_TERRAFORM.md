@@ -71,7 +71,7 @@ aws s3api put-public-access-block \
 # 2. Apply bucket policy (allows public read/write for specific paths)
 aws s3api put-bucket-policy \
   --bucket shelfshack-dev-uploads \
-  --policy file://s3-bucket-policy.json
+  --policy file://policies/s3-bucket-policy.json
 
 # 3. Configure encryption
 aws s3api put-bucket-encryption \
@@ -103,7 +103,7 @@ aws s3api put-bucket-cors \
   }'
 ```
 
-**Note:** The `s3-bucket-policy.json` file is already created in the repo root with the correct bucket name (`shelfshack-dev-uploads`). It includes:
+**Note:** The `s3-bucket-policy.json` file is located at `policies/s3-bucket-policy.json` with the correct bucket name (`shelfshack-dev-uploads`). It includes:
 - Public read access to `item_images/*` and `profile_photos/*`
 - Public write access (PutObject) to the entire bucket
 
