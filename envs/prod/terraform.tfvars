@@ -155,3 +155,8 @@ log_retention_in_days = 90  # Production: Retain logs for 90 days
 deployment_maximum_percent = 200
 deployment_minimum_healthy_percent = 50  # Production: Allow rolling updates
 
+# Amplify App Environment Variables Management
+# Set amplify_app_id to manage environment variables for existing Amplify app
+amplify_app_id = "d2xpdxn0utcezp"
+amplify_prod_branch_name = "main"
+

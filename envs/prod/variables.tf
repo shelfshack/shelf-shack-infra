@@ -563,3 +563,22 @@ variable "deploy_role_name" {
   type        = string
   default     = "shelfshackDeployRole"
 }
+
+# Amplify App Configuration (Environment Variables Management)
+variable "amplify_app_id" {
+  description = "Existing Amplify app ID to manage environment variables for"
+  type        = string
+  default     = null
+}
+
+variable "amplify_dev_branch_name" {
+  description = "Amplify branch name for development environment (not used in prod, but kept for consistency)"
+  type        = string
+  default     = "development"
+}
+
+variable "amplify_prod_branch_name" {
+  description = "Amplify branch name for production environment"
+  type        = string
+  default     = "main"
+}

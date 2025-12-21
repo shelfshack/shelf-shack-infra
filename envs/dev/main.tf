@@ -847,3 +847,40 @@ resource "aws_apigatewayv2_route" "backend_root" {
 #     evaluate_target_health = true
 #   }
 # }
+
+# ============================================================================
+# AWS Amplify App Environment Variables Management
+# ============================================================================
+# Manage environment variables for existing Amplify app branches
+# The app itself is managed by Git, we only manage environment variables
+
+data "aws_amplify_app" "existing" {
+  count = var.amplify_app_id != null ? 1 : 0
+  app_id = var.amplify_app_id
+}
+
+# Development branch environment variables
+resource "aws_amplify_branch" "development" {
+  count = var.amplify_app_id != null ? 1 : 0
+
+  app_id      = var.amplify_app_id
+  branch_name = var.amplify_dev_branch_name
+
+  # Environment variables pointing to Terraform-managed API Gateways
+  environment_variables = {
+    API_BASE_URL_DEVELOPMENT = "https://${aws_apigatewayv2_api.backend.id}.execute-api.${var.aws_region}.amazonaws.com/${var.http_api_stage_name}"
+    WS_API_ENDPOINT_DEVELOPMENT = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+  }
+
+  # Enable auto build (if not already enabled)
+  enable_auto_build = true
+
+  tags = local.tags
+
+  depends_on = [
+    aws_apigatewayv2_api.backend,
+    aws_apigatewayv2_api.websocket,
+    aws_apigatewayv2_stage.backend,
+    aws_apigatewayv2_stage.websocket
+  ]
+}

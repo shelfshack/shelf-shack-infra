@@ -194,3 +194,14 @@ output "websocket_connections_table_name" {
   description = "DynamoDB table name for WebSocket connections"
   value       = module.websocket_lambda.dynamodb_table_name
 }
+
+# Amplify Branch outputs
+output "amplify_prod_branch_arn" {
+  description = "ARN of the Amplify production branch"
+  value       = var.amplify_app_id != null ? aws_amplify_branch.production[0].arn : null
+}
+
+output "amplify_prod_branch_environment_variables" {
+  description = "Environment variables set on Amplify production branch"
+  value       = var.amplify_app_id != null ? aws_amplify_branch.production[0].environment_variables : null
+}

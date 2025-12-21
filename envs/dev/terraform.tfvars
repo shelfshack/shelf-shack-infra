@@ -127,3 +127,8 @@ websocket_lambda_source_file = "../../lambda/websocket_proxy.py"
 websocket_lambda_requirements_file = "../../lambda/requirements.txt"
 # Optional: Override backend URL (defaults to ALB URL if available)
 # websocket_backend_url = "https://api.yourdomain.com"
+
+# Amplify App Environment Variables Management
+# Set amplify_app_id to manage environment variables for existing Amplify app
+amplify_app_id = "d2xpdxn0utcezp"
+amplify_dev_branch_name = "develop"
