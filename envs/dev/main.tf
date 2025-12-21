@@ -854,11 +854,6 @@ resource "aws_apigatewayv2_route" "backend_root" {
 # Manage environment variables for existing Amplify app branches
 # The app itself is managed by Git, we only manage environment variables
 
-data "aws_amplify_app" "existing" {
-  count = var.amplify_app_id != null ? 1 : 0
-  app_id = var.amplify_app_id
-}
-
 # Development branch environment variables
 resource "aws_amplify_branch" "development" {
   count = var.amplify_app_id != null ? 1 : 0

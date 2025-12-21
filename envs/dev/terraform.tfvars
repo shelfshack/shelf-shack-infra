@@ -36,6 +36,7 @@ app_environment = {
   S3_ITEM_PREFIX="item_images"
   S3_USE_PATH_STYLE="false"
   ACCESS_TOKEN_EXPIRE_MINUTES=30
+  SKIP_AWS_SECRETS_MANAGER=true
   
   # Note: WebSocket notification broadcasting variables (CONNECTIONS_TABLE, WEBSOCKET_API_ENDPOINT, AWS_REGION)
   # are automatically set in main.tf from the websocket_lambda module and API Gateway resources.

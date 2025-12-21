@@ -118,17 +118,17 @@ output "deploy_role_name" {
 
 # OpenSearch EC2 outputs
 output "opensearch_ec2_endpoint" {
-  description = "OpenSearch EC2 endpoint (internal IP)"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_host : null
+  description = "OpenSearch HTTP endpoint on EC2 (http://private_ip:9200)"
+  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_endpoint : null
 }
 
 output "opensearch_ec2_host" {
-  description = "OpenSearch EC2 host IP address"
+  description = "OpenSearch host (private IP) for use in OPENSEARCH_HOST env var"
   value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_host : null
 }
 
 output "opensearch_ec2_instance_id" {
-  description = "OpenSearch EC2 instance ID"
+  description = "EC2 instance ID running OpenSearch"
   value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].instance_id : null
 }
 
@@ -156,22 +156,6 @@ output "service_security_group_id" {
 output "search_backend" {
   description = "Search backend in use"
   value       = var.enable_opensearch_ec2 ? "OpenSearch on EC2" : "PostgreSQL (OpenSearch disabled)"
-}
-
-# OpenSearch EC2 outputs
-output "opensearch_ec2_endpoint" {
-  description = "OpenSearch HTTP endpoint on EC2 (http://private_ip:9200)"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_endpoint : null
-}
-
-output "opensearch_ec2_host" {
-  description = "OpenSearch host (private IP) for use in OPENSEARCH_HOST env var"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].opensearch_host : null
-}
-
-output "opensearch_ec2_instance_id" {
-  description = "EC2 instance ID running OpenSearch"
-  value       = var.enable_opensearch_ec2 ? module.opensearch_ec2[0].instance_id : null
 }
 
 # WebSocket API Gateway outputs
