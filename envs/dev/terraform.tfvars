@@ -47,39 +47,39 @@ force_new_deployment = true
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/db_url-ft3urj:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:DATABASE_URL::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:google_api_client_id-aZhag9:GOOGLE_CLIENT_ID::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:GOOGLE_CLIENT_ID::"
   },
   {
     name       = "SMTP_SERVER"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:SMTP_SERVER::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_SERVER::"
   },
   {
     name       = "SMTP_PORT"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:SMTP_PORT::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_PORT::"
   },
   {
     name       = "SMTP_USERNAME"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:SMTP_USERNAME::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_USERNAME::"
   },
   {
     name       = "SMTP_PASSWORD"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:SMTP_PASSWORD::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_PASSWORD::"
   },
   {
     name       = "EMAILS_FROM_EMAIL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:EMAILS_FROM_EMAIL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:EMAILS_FROM_EMAIL::"
   },
   {
     name       = "FRONTEND_BASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-3u8sxy:FRONTEND_BASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:FRONTEND_BASE_URL::"
   },
   {
     name       = "STRIPE_SECRET_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:stripe_secret_key-Fw4ydT:STRIPE_SECRET_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:STRIPE_SECRET_KEY::"
   }
 ]
 
