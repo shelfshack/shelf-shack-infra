@@ -186,3 +186,4 @@ terraform apply -target=module.websocket_lambda.aws_lambda_function.websocket_pr
 The environment variables should be automatically set by Terraform when you run `terraform apply`.
 
 
+
