@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.3"
+    }
   }
 }
 
@@ -17,6 +21,173 @@ provider "aws" {
 data "aws_secretsmanager_secret_version" "db_password" {
   count     = var.db_master_password_secret_arn != null ? 1 : 0
   secret_id = var.db_master_password_secret_arn
+}
+
+# External data source to get ECS task public IP (using AWS CLI)
+# This data source runs during terraform plan/apply and fetches the CURRENT running task's IP
+# It waits up to 5 minutes for the task to be ready with a public IP assigned
+data "external" "ecs_task_public_ip" {
+  count = !var.enable_load_balancer ? 1 : 0
+  program = ["bash", "-c", <<-EOT
+    CLUSTER="${module.ecs_service.cluster_name}"
+    SERVICE="${module.ecs_service.service_name}"
+    TASK_DEF_ARN="${module.ecs_service.task_definition_arn}"
+    
+    # Retry configuration: wait up to 5 minutes for task to be ready with public IP
+    MAX_RETRIES=60
+    RETRY_DELAY=5
+    RETRY_COUNT=0
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+      # Get all running tasks for the service
+      TASK_ARNS=$(aws ecs list-tasks \
+        --cluster "$CLUSTER" \
+        --service-name "$SERVICE" \
+        --desired-status RUNNING \
+        --query 'taskArns[]' \
+        --output text 2>/dev/null || echo "")
+      
+      if [ -z "$TASK_ARNS" ]; then
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+          echo "Waiting for ECS tasks to start... (attempt $RETRY_COUNT/$MAX_RETRIES)" >&2
+          sleep $RETRY_DELAY
+          continue
+        else
+          echo '{"public_ip":"","error":"No running tasks found after waiting"}'
+          exit 0
+        fi
+      fi
+      
+      # Get task details and filter by current task definition ARN
+      # Sort by creation time (newest first) to get the latest deployment
+      NEWEST_TASK_ARN=""
+      NEWEST_CREATED_AT=""
+      
+      for TASK_ARN in $TASK_ARNS; do
+        # Get task definition ARN directly using AWS CLI query (more reliable than JSON parsing)
+        TASK_DEF=$(aws ecs describe-tasks \
+          --cluster "$CLUSTER" \
+          --tasks "$TASK_ARN" \
+          --query 'tasks[0].taskDefinitionArn' \
+          --output text 2>/dev/null || echo "")
+        
+        if [ -z "$TASK_DEF" ] || [ "$TASK_DEF" == "None" ] || [ "$TASK_DEF" == "null" ]; then
+          continue
+        fi
+        
+        # Compare task definition ARNs (exact match)
+        if [ "$TASK_DEF" != "$TASK_DEF_ARN" ]; then
+          continue
+        fi
+        
+        # Get creation time (startedAt timestamp) directly using AWS CLI query
+        CREATED_AT=$(aws ecs describe-tasks \
+          --cluster "$CLUSTER" \
+          --tasks "$TASK_ARN" \
+          --query 'tasks[0].startedAt' \
+          --output text 2>/dev/null || echo "")
+        
+        if [ -z "$CREATED_AT" ] || [ "$CREATED_AT" == "None" ] || [ "$CREATED_AT" == "null" ]; then
+          continue
+        fi
+        
+        # ISO 8601 timestamps are lexicographically sortable, so we can compare them directly
+        # Keep track of newest task (lexicographically largest timestamp = newest)
+        if [ -z "$NEWEST_CREATED_AT" ] || [ "$CREATED_AT" \> "$NEWEST_CREATED_AT" ]; then
+          NEWEST_CREATED_AT=$CREATED_AT
+          NEWEST_TASK_ARN=$TASK_ARN
+        fi
+      done
+      
+      if [ -z "$NEWEST_TASK_ARN" ]; then
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+          echo "Waiting for task with matching task definition... (attempt $RETRY_COUNT/$MAX_RETRIES)" >&2
+          sleep $RETRY_DELAY
+          continue
+        else
+          echo '{"public_ip":"","error":"No task found matching current task definition after waiting"}'
+          exit 0
+        fi
+      fi
+      
+      # Get ENI ID from the newest matching task
+      ENI_ID=$(aws ecs describe-tasks \
+        --cluster "$CLUSTER" \
+        --tasks "$NEWEST_TASK_ARN" \
+        --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+        --output text 2>/dev/null || echo "")
+      
+      if [ -z "$ENI_ID" ] || [ "$ENI_ID" == "None" ]; then
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+          echo "Waiting for ENI to be attached... (attempt $RETRY_COUNT/$MAX_RETRIES)" >&2
+          sleep $RETRY_DELAY
+          continue
+        else
+          echo '{"public_ip":"","error":"No ENI found for task after waiting"}'
+          exit 0
+        fi
+      fi
+      
+      # Get public IP from ENI
+      PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+        --network-interface-ids "$ENI_ID" \
+        --query 'NetworkInterfaces[0].Association.PublicIp' \
+        --output text 2>/dev/null || echo "")
+      
+      if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" == "None" ] || [ "$PUBLIC_IP" == "null" ]; then
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+          echo "Waiting for public IP to be assigned... (attempt $RETRY_COUNT/$MAX_RETRIES)" >&2
+          sleep $RETRY_DELAY
+          continue
+        else
+          echo '{"public_ip":"","error":"No public IP found for ENI after waiting"}'
+          exit 0
+        fi
+      fi
+      
+      # Success! We have a valid public IP
+      echo "{\"public_ip\":\"$PUBLIC_IP\",\"task_arn\":\"$NEWEST_TASK_ARN\"}"
+      exit 0
+    done
+    
+    # If we get here, we've exhausted all retries
+    echo '{"public_ip":"","error":"Failed to get public IP after maximum retries"}'
+    exit 0
+  EOT
+  ]
+  
+  # Use task definition ARN and service name as triggers - when these change (new deployment),
+  # this will force the data source to refresh and fetch the new task's IP
+  query = {
+    task_def_arn = module.ecs_service.task_definition_arn
+    service_name = module.ecs_service.service_name
+    cluster_name = module.ecs_service.cluster_name
+  }
+}
+
+# Local value to determine the backend URL dynamically
+locals {
+  # Get public IP from external data source if ALB is disabled, otherwise use ALB DNS
+  # Check if data source exists and has a valid IP
+  ecs_public_ip = !var.enable_load_balancer && length(data.external.ecs_task_public_ip) > 0 ? (
+    try(data.external.ecs_task_public_ip[0].result.public_ip, "") != "" && data.external.ecs_task_public_ip[0].result.public_ip != null ? 
+      data.external.ecs_task_public_ip[0].result.public_ip : 
+      null
+  ) : null
+  
+  # Determine backend URL: priority: var.http_api_backend_url > ALB DNS > ECS public IP > fallback
+  backend_url = var.http_api_backend_url != null ? var.http_api_backend_url : (
+    var.enable_load_balancer && module.ecs_service.load_balancer_dns != null ? 
+      "http://${module.ecs_service.load_balancer_dns}:${var.container_port}" : (
+        local.ecs_public_ip != null ? 
+          "http://${local.ecs_public_ip}:${var.container_port}" : 
+          var.http_api_backend_ip != null ? "http://${var.http_api_backend_ip}:${var.container_port}" : null
+      )
+  )
 }
 
 locals {
@@ -421,6 +592,218 @@ resource "aws_security_group_rule" "opensearch_from_ecs_perf" {
 # }
 
 # ============================================================================
+# WebSocket API Gateway and Lambda Proxy
+# ============================================================================
+# Note: API Gateway WebSocket API and Lambda function for chat WebSocket proxy
+# This enables WebSocket connections through API Gateway to work with AWS Amplify
+
+# API Gateway WebSocket API
+resource "aws_apigatewayv2_api" "websocket" {
+  name                       = "${local.name}-websocket"
+  protocol_type              = "WEBSOCKET"
+  route_selection_expression = "$request.body.action"
+  
+  tags = local.tags
+}
+
+# API Gateway WebSocket Stage
+resource "aws_apigatewayv2_stage" "websocket" {
+  api_id      = aws_apigatewayv2_api.websocket.id
+  name        = var.websocket_stage_name
+  auto_deploy = true
+
+  default_route_settings {
+    throttling_rate_limit  = 100
+    throttling_burst_limit = 50
+  }
+
+  tags = local.tags
+}
+
+# WebSocket Lambda Proxy Module
+module "websocket_lambda" {
+  source = "../../modules/websocket_lambda"
+
+  name                  = local.name
+  connections_table_name = "${local.name}-websocket-connections"
+  lambda_source_file    = var.websocket_lambda_source_file
+  lambda_requirements_file = var.websocket_lambda_requirements_file
+  # Use the same dynamically determined backend URL as HTTP API Gateway
+  # Priority: var.websocket_backend_url > local.backend_url (auto-fetched) > fallback
+  backend_url = var.websocket_backend_url != null ? var.websocket_backend_url : (
+    local.backend_url != null ? local.backend_url : (
+      var.enable_load_balancer && var.route53_zone_id != null && var.domain_name != null ? "https://${var.api_subdomain}.${var.domain_name}" : 
+      "http://localhost:8000"
+    )
+  )
+  api_gateway_id        = aws_apigatewayv2_api.websocket.id
+  api_gateway_endpoint   = "https://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+  additional_environment_variables = var.websocket_lambda_environment_variables
+  tags                  = local.tags
+}
+
+# API Gateway WebSocket Routes
+# $connect route
+resource "aws_apigatewayv2_route" "connect" {
+  api_id    = aws_apigatewayv2_api.websocket.id
+  route_key = "$connect"
+  target    = "integrations/${aws_apigatewayv2_integration.websocket.id}"
+}
+
+# $disconnect route
+resource "aws_apigatewayv2_route" "disconnect" {
+  api_id    = aws_apigatewayv2_api.websocket.id
+  route_key = "$disconnect"
+  target    = "integrations/${aws_apigatewayv2_integration.websocket.id}"
+}
+
+# $default route (for messages)
+resource "aws_apigatewayv2_route" "default" {
+  api_id    = aws_apigatewayv2_api.websocket.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.websocket.id}"
+}
+
+# API Gateway WebSocket Integration
+resource "aws_apigatewayv2_integration" "websocket" {
+  api_id           = aws_apigatewayv2_api.websocket.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = module.websocket_lambda.lambda_function_arn
+}
+
+# ============================================================================
+# HTTP API Gateway for Backend (REST API Proxy)
+# ============================================================================
+# HTTP API Gateway that proxies requests to the ECS service
+# This replaces the manually created API Gateway: shelfshack-backend-prod
+
+# HTTP API Gateway
+resource "aws_apigatewayv2_api" "backend" {
+  name          = "${local.name}-backend"
+  protocol_type = "HTTP"
+  description   = "HTTP API Gateway for backend API proxy to ECS service"
+  
+  cors_configuration {
+    allow_origins = var.http_api_cors_origins
+    allow_methods = var.http_api_cors_methods
+    allow_headers = var.http_api_cors_headers
+    max_age       = var.http_api_cors_max_age
+  }
+  
+  tags = local.tags
+}
+
+# HTTP API Gateway Stage
+resource "aws_apigatewayv2_stage" "backend" {
+  api_id      = aws_apigatewayv2_api.backend.id
+  name        = var.http_api_stage_name
+  auto_deploy = true
+
+  default_route_settings {
+    throttling_rate_limit  = var.http_api_throttle_rate_limit
+    throttling_burst_limit = var.http_api_throttle_burst_limit
+  }
+
+  tags = local.tags
+}
+
+# HTTP API Gateway Integration (HTTP proxy to ECS service with {proxy} path)
+resource "aws_apigatewayv2_integration" "backend" {
+  api_id           = aws_apigatewayv2_api.backend.id
+  integration_type = "HTTP_PROXY"
+  # Integration URI with {proxy} placeholder - dynamically fetched from ECS service
+  # Priority: var.http_api_backend_url > ALB DNS > ECS public IP (auto-fetched) > http_api_backend_ip
+  integration_uri  = local.backend_url != null && local.backend_url != "" ? (
+    # If URL already includes {proxy}, use as-is; otherwise append it
+    can(regex("/\\{proxy\\}", local.backend_url)) ? local.backend_url : "${local.backend_url}/{proxy}"
+  ) : (
+    var.http_api_backend_ip != null ? "http://${var.http_api_backend_ip}:${var.container_port}/{proxy}" : "http://127.0.0.1:${var.container_port}/{proxy}"
+  )
+  integration_method = "ANY"
+  timeout_milliseconds = var.http_api_timeout_milliseconds
+  connection_type     = "INTERNET"
+  
+  depends_on = [
+    data.external.ecs_task_public_ip,
+    module.ecs_service
+  ]
+}
+
+# HTTP API Gateway Integration for root path (without {proxy})
+resource "aws_apigatewayv2_integration" "backend_root" {
+  api_id           = aws_apigatewayv2_api.backend.id
+  integration_type = "HTTP_PROXY"
+  # Integration URI without {proxy} for root path - use base URL directly
+  integration_uri  = var.http_api_backend_url != null ? (
+    # If manual URL provided, remove /{proxy} if present, otherwise use as-is
+    can(regex("/\\{proxy\\}", var.http_api_backend_url)) ? regex_replace(var.http_api_backend_url, "/\\{proxy\\}", "") : var.http_api_backend_url
+  ) : (
+    var.enable_load_balancer && module.ecs_service.load_balancer_dns != null ? 
+      "http://${module.ecs_service.load_balancer_dns}:${var.container_port}" : (
+        local.ecs_public_ip != null && local.ecs_public_ip != "" ? 
+          "http://${local.ecs_public_ip}:${var.container_port}" : 
+          var.http_api_backend_ip != null ? "http://${var.http_api_backend_ip}:${var.container_port}" : "http://127.0.0.1:${var.container_port}"
+      )
+  )
+  integration_method = "ANY"
+  timeout_milliseconds = var.http_api_timeout_milliseconds
+  connection_type     = "INTERNET"
+  
+  depends_on = [
+    data.external.ecs_task_public_ip,
+    module.ecs_service
+  ]
+}
+
+# HTTP API Gateway Route (catch-all proxy route)
+resource "aws_apigatewayv2_route" "backend_proxy" {
+  api_id    = aws_apigatewayv2_api.backend.id
+  route_key = "ANY /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
+}
+
+# HTTP API Gateway Default Route (for root path)
+resource "aws_apigatewayv2_route" "backend_root" {
+  api_id    = aws_apigatewayv2_api.backend.id
+  route_key = "ANY /"
+  target    = "integrations/${aws_apigatewayv2_integration.backend_root.id}"
+}
+
+# ============================================================================
+# IAM Deploy Role
+# ============================================================================
+# IAM role for deployment operations (CI/CD, Terraform)
+# This role is used by GitHub Actions and other deployment tools
+
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "deploy_role_assume" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "deploy_role" {
+  name               = var.deploy_role_name
+  assume_role_policy = data.aws_iam_policy_document.deploy_role_assume.json
+  
+  tags = merge(local.tags, {
+    Name = var.deploy_role_name
+  })
+}
+
+resource "aws_iam_role_policy" "deploy_role_consolidated" {
+  name   = "${var.deploy_role_name}-consolidated-policy"
+  role   = aws_iam_role.deploy_role.id
+  policy = file("${path.module}/../../policies/deploy-role-consolidated-policy.json")
+}
+
+# ============================================================================
 # Route53 Records for Subdomains
 # ============================================================================
 # API subdomain (api.shelfshack.com)
@@ -466,4 +849,36 @@ data "aws_lb" "alb" {
 #     evaluate_target_health = true
 #   }
 # }
+
+# ============================================================================
+# AWS Amplify App Environment Variables Management
+# ============================================================================
+# Manage environment variables for existing Amplify app branches
+# The app itself is managed by Git, we only manage environment variables
+
+# Production branch environment variables
+resource "aws_amplify_branch" "production" {
+  count = var.amplify_app_id != null ? 1 : 0
+
+  app_id      = var.amplify_app_id
+  branch_name = var.amplify_prod_branch_name
+
+  # Environment variables pointing to Terraform-managed API Gateways
+  environment_variables = {
+    API_BASE_URL_PRODUCTION = "https://${aws_apigatewayv2_api.backend.id}.execute-api.${var.aws_region}.amazonaws.com/${var.http_api_stage_name}"
+    WS_API_ENDPOINT_PRODUCTION = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+  }
+
+  # Enable auto build (if not already enabled)
+  enable_auto_build = true
+
+  tags = local.tags
+
+  depends_on = [
+    aws_apigatewayv2_api.backend,
+    aws_apigatewayv2_api.websocket,
+    aws_apigatewayv2_stage.backend,
+    aws_apigatewayv2_stage.websocket
+  ]
+}
 

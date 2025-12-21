@@ -464,3 +464,121 @@ variable "opensearch_ec2_security_disabled" {
   type        = bool
   default     = false
 }
+
+# WebSocket API Gateway and Lambda Configuration
+variable "websocket_stage_name" {
+  description = "Stage name for WebSocket API Gateway"
+  type        = string
+  default     = "production"
+}
+
+variable "websocket_lambda_source_file" {
+  description = "Path to the WebSocket Lambda proxy source file. Relative path from envs/prod directory. Lambda code is part of infra repo at lambda/websocket_proxy.py"
+  type        = string
+  default     = "../../lambda/websocket_proxy.py"
+}
+
+variable "websocket_lambda_requirements_file" {
+  description = "Path to requirements.txt file for Lambda dependencies. Relative path from envs/prod directory. Defaults to lambda/requirements.txt in infra repo."
+  type        = string
+  default     = "../../lambda/requirements.txt"
+}
+
+variable "websocket_backend_url" {
+  description = "Backend URL for WebSocket Lambda (overrides auto-detection)"
+  type        = string
+  default     = null
+}
+
+variable "websocket_lambda_environment_variables" {
+  description = "Additional environment variables for WebSocket Lambda function"
+  type        = map(string)
+  default     = {}
+}
+
+# HTTP API Gateway Configuration
+variable "http_api_backend_url" {
+  description = "Backend URL for HTTP API Gateway integration (e.g., http://3.223.195.133:8000). If null, will use ALB DNS or http_api_backend_ip"
+  type        = string
+  default     = null
+}
+
+variable "http_api_backend_ip" {
+  description = "Backend IP address for HTTP API Gateway integration (used when ALB is disabled). Defaults to current ECS task public IP"
+  type        = string
+  default     = null
+}
+
+variable "http_api_stage_name" {
+  description = "Stage name for HTTP API Gateway"
+  type        = string
+  default     = "production"
+}
+
+variable "http_api_timeout_milliseconds" {
+  description = "Timeout in milliseconds for HTTP API Gateway integration"
+  type        = number
+  default     = 30000
+}
+
+variable "http_api_cors_origins" {
+  description = "Allowed CORS origins for HTTP API Gateway"
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "http_api_cors_methods" {
+  description = "Allowed CORS methods for HTTP API Gateway"
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "http_api_cors_headers" {
+  description = "Allowed CORS headers for HTTP API Gateway"
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "http_api_cors_max_age" {
+  description = "Max age for CORS preflight requests (seconds)"
+  type        = number
+  default     = 300
+}
+
+variable "http_api_throttle_rate_limit" {
+  description = "Throttle rate limit for HTTP API Gateway stage"
+  type        = number
+  default     = 100
+}
+
+variable "http_api_throttle_burst_limit" {
+  description = "Throttle burst limit for HTTP API Gateway stage"
+  type        = number
+  default     = 50
+}
+
+# Deploy Role Configuration
+variable "deploy_role_name" {
+  description = "Name of the IAM role used for deployment operations (CI/CD, Terraform)"
+  type        = string
+  default     = "shelfshackDeployRole"
+}
+
+# Amplify App Configuration (Environment Variables Management)
+variable "amplify_app_id" {
+  description = "Existing Amplify app ID to manage environment variables for"
+  type        = string
+  default     = null
+}
+
+variable "amplify_dev_branch_name" {
+  description = "Amplify branch name for development environment (not used in prod, but kept for consistency)"
+  type        = string
+  default     = "development"
+}
+
+variable "amplify_prod_branch_name" {
+  description = "Amplify branch name for production environment"
+  type        = string
+  default     = "main"
+}
