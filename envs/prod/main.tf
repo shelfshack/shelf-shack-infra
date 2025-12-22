@@ -321,6 +321,7 @@ module "rds" {
   multi_az                   = var.db_multi_az
   backup_retention_period    = var.db_backup_retention_days
   skip_final_snapshot        = var.db_skip_final_snapshot
+  final_snapshot_identifier = var.db_final_snapshot_identifier
   deletion_protection        = var.db_deletion_protection
   apply_immediately          = var.db_apply_immediately
   publicly_accessible        = var.db_publicly_accessible
