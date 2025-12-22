@@ -50,39 +50,39 @@ force_new_deployment = false  # Production: Don't force deployment on every appl
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/prod/db-url-XXXXXX:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:DATABASE_URL::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:google_api_client_id-XXXXXX:GOOGLE_CLIENT_ID::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_CLIENT_ID::"
   },
   {
     name       = "SMTP_SERVER"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-XXXXXX:SMTP_SERVER::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_SERVER::"
   },
   {
     name       = "SMTP_PORT"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-XXXXXX:SMTP_PORT::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PORT::"
   },
   {
     name       = "SMTP_USERNAME"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-XXXXXX:SMTP_USERNAME::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_USERNAME::"
   },
   {
     name       = "SMTP_PASSWORD"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-XXXXXX:SMTP_PASSWORD::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PASSWORD::"
   },
   {
     name       = "EMAILS_FROM_EMAIL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-XXXXXX:EMAILS_FROM_EMAIL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:EMAILS_FROM_EMAIL::"
   },
   {
     name       = "FRONTEND_BASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:smtp_secret-XXXXXX:FRONTEND_BASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:FRONTEND_BASE_URL::"
   },
   {
     name       = "STRIPE_SECRET_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:stripe_secret_key-XXXXXX:STRIPE_SECRET_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:STRIPE_SECRET_KEY::"
   }
 ]
 
@@ -91,12 +91,13 @@ db_master_username  = "dbadmin_shelfshack"
 # db_master_password is intentionally unset; provide it via TF_VAR_DB_MASTER_PASSWORD in CI/secrets.
 # Recommended: Use AWS Secrets Manager for production
 # db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/prod/db-password-XXXXXX"
-db_allocated_storage = 100  # Production: More storage
+db_allocated_storage = 20  # Free Tier: Maximum 20 GB (upgrade account for more)
 db_engine_version    = "17.6"
-db_multi_az          = true  # Production: Enable multi-AZ for high availability
-db_backup_retention_days = 30  # Production: Retain backups for 30 days
-db_skip_final_snapshot   = false  # Production: Create final snapshot before deletion
-db_deletion_protection   = true  # Production: Enable deletion protection
+db_multi_az          = false  # Free Tier: Multi-AZ not available (upgrade account to enable)
+db_backup_retention_days = 1  # Free Tier: Maximum 1 day (upgrade account for more)
+db_skip_final_snapshot   = true  # Set to true to skip snapshot during destroy
+db_final_snapshot_identifier = null  # Auto-generate if skip_final_snapshot is false
+db_deletion_protection   = false  # Set to false for destroy (was true for production)
 db_apply_immediately     = false  # Production: Apply during maintenance window
 db_publicly_accessible   = false
 

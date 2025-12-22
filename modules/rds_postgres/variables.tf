@@ -78,6 +78,12 @@ variable "skip_final_snapshot" {
   default     = true
 }
 
+variable "final_snapshot_identifier" {
+  description = "Identifier for the final snapshot when skip_final_snapshot is false. If not provided, will use {name}-final-snapshot-{timestamp}."
+  type        = string
+  default     = null
+}
+
 variable "deletion_protection" {
   description = "Enable deletion protection."
   type        = bool
