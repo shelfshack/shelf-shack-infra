@@ -2,6 +2,11 @@ locals {
   tags = merge(var.tags, {
     Module = "rds-postgres"
   })
+
+  # Generate final snapshot identifier if skip_final_snapshot is false
+  final_snapshot_identifier = var.skip_final_snapshot ? null : (
+    var.final_snapshot_identifier != null ? var.final_snapshot_identifier : "${var.name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+  )
 }
 
 resource "aws_db_subnet_group" "this" {
@@ -54,6 +59,7 @@ resource "aws_db_instance" "this" {
   backup_window           = var.backup_window
   maintenance_window      = var.maintenance_window
   skip_final_snapshot     = var.skip_final_snapshot
+  final_snapshot_identifier = local.final_snapshot_identifier
   deletion_protection     = var.deletion_protection
   apply_immediately       = var.apply_immediately
   auto_minor_version_upgrade = true

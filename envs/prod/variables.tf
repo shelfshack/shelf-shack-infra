@@ -320,6 +320,12 @@ variable "db_skip_final_snapshot" {
   default     = true
 }
 
+variable "db_final_snapshot_identifier" {
+  description = "Identifier for the final RDS snapshot when skip_final_snapshot is false. If not provided, will auto-generate."
+  type        = string
+  default     = null
+}
+
 variable "db_deletion_protection" {
   description = "Enable deletion protection."
   type        = bool
