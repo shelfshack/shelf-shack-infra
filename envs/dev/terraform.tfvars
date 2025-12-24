@@ -81,6 +81,10 @@ app_secrets = [
   {
     name       = "STRIPE_SECRET_KEY"
     value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:STRIPE_SECRET_KEY::"
+  },
+  {
+    name      = "GOOGLE_MAPS_API_KEY"
+    valueFrom = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_MAPS_API_KEY::"
   }
 ]
 
