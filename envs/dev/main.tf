@@ -884,19 +884,14 @@ resource "aws_amplify_branch" "development" {
     prevent_destroy = true
     # Ignore changes to branch settings managed by Git (only manage env vars)
     ignore_changes = [
-      framework,
       stage,
       enable_pull_request_preview,
-      pull_request_environment_name,
       enable_auto_build,
       enable_performance_mode,
       enable_basic_auth,
-      basic_auth_credentials,
-      build_spec,
       ttl,
       display_name,
-      enable_notification,
-      backend_environment_arn
+      enable_notification
     ]
   }
 }
