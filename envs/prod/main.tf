@@ -856,9 +856,19 @@ data "aws_lb" "alb" {
 # ============================================================================
 # Manages Amplify branch and environment variables for the frontend app
 # 
-# IMPORTANT: If the branch already exists, import it first:
-#   terraform import aws_amplify_branch.production[0] <app-id>/<branch-name>
-# Example: terraform import aws_amplify_branch.production[0] d2xpdxn0utcezp/main
+# IMPORTANT: If the branch already exists in AWS but not in Terraform state,
+# you need to import it before terraform apply. Add this step to your CI/CD workflow
+# BEFORE running terraform apply:
+#
+#   - name: Import Amplify branch if exists
+#     run: |
+#       cd envs/prod
+#       terraform import aws_amplify_branch.production[0] d2xpdxn0utcezp/main || true
+#
+# Or use the import script:
+#   ./scripts/import-amplify-branch.sh prod
+#
+# The "|| true" ensures the workflow continues even if the branch is already in state.
 
 # Merge user-provided and computed environment variables
 locals {
