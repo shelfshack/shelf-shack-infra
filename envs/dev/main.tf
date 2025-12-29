@@ -849,25 +849,38 @@ resource "aws_apigatewayv2_route" "backend_root" {
 # }
 
 # ============================================================================
-# AWS Amplify App Environment Variables Management
+# AWS Amplify Branch and Environment Variables
 # ============================================================================
-# Manage environment variables for existing Amplify app branches
-# The app itself is managed by Git, we only manage environment variables
+# Manages Amplify branch and environment variables for the frontend app
+# 
+# IMPORTANT: If the branch already exists, import it first:
+#   terraform import aws_amplify_branch.development[0] <app-id>/<branch-name>
+# Example: terraform import aws_amplify_branch.development[0] d2xpdxn0utcezp/develop
 
-# Development branch environment variables
+# Merge user-provided and computed environment variables
+locals {
+  amplify_env_vars = merge(
+    var.amplify_branch_environment_variables,
+    # Add computed API endpoint if HTTP API Gateway is available
+    var.amplify_app_id != null && var.amplify_dev_branch_name != null && aws_apigatewayv2_api.backend.id != null ? {
+      API_BASE_URL_DEVELOPMENT = "https://${aws_apigatewayv2_api.backend.id}.execute-api.${var.aws_region}.amazonaws.com/${var.http_api_stage_name}"
+      WS_API_ENDPOINT_DEVELOPMENT = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+    } : {}
+  )
+}
+
+# Amplify branch resource - manages the branch and its environment variables
+# This properly sets environment variables in Amplify (unlike AWS CLI approach)
 resource "aws_amplify_branch" "development" {
-  count = var.amplify_app_id != null ? 1 : 0
+  count = var.amplify_app_id != null && var.amplify_dev_branch_name != null ? 1 : 0
 
   app_id      = var.amplify_app_id
   branch_name = var.amplify_dev_branch_name
 
-  # Environment variables pointing to Terraform-managed API Gateways
-  environment_variables = {
-    API_BASE_URL_DEVELOPMENT = "https://${aws_apigatewayv2_api.backend.id}.execute-api.${var.aws_region}.amazonaws.com/${var.http_api_stage_name}"
-    WS_API_ENDPOINT_DEVELOPMENT = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
-  }
+  # Environment variables - this properly sets them in Amplify
+  environment_variables = local.amplify_env_vars
 
-  # Enable auto build (if not already enabled)
+  # Enable auto build
   enable_auto_build = true
 
   tags = local.tags
