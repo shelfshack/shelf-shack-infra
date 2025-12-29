@@ -872,6 +872,43 @@ resource "aws_apigatewayv2_route" "backend_root" {
 #
 # The "|| true" ensures the workflow continues even if the branch is already in state.
 
+# ============================================================================
+# IAM role for deployment operations (CI/CD, Terraform)
+# This role is used by GitHub Actions and other deployment tools
+# Each environment has its own deploy role for security isolation
+
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "deploy_role_assume" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "deploy_role" {
+  name               = var.deploy_role_name
+  assume_role_policy = data.aws_iam_policy_document.deploy_role_assume.json
+  
+  tags = merge(local.tags, {
+    Name = var.deploy_role_name
+  })
+}
+
+resource "aws_iam_role_policy" "deploy_role_consolidated" {
+  name   = "${var.deploy_role_name}-consolidated-policy"
+  role   = aws_iam_role.deploy_role.id
+  policy = file("${path.module}/../../policies/deploy-role-consolidated-policy.json")
+}
+
+# ============================================================================
+# Amplify Branch Management
+# ============================================================================
+
 # Merge user-provided and computed environment variables
 locals {
   amplify_env_vars = merge(
