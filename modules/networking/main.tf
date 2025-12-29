@@ -1,3 +1,6 @@
+# Networking Module
+# Supports "create if not exists" pattern to prevent duplicate VPCs when state is lost
+
 locals {
   tags = merge(var.tags, {
     Module = "networking"
@@ -8,11 +11,95 @@ locals {
     "ssmmessages",
     "ec2messages"
   ]
+  
+  vpc_name = "${var.name}-vpc"
 }
 
 data "aws_region" "current" {}
 
+# Check if VPC already exists using AWS CLI
+# This is safer than a data source because it doesn't fail if VPC doesn't exist
+data "external" "check_vpc_exists" {
+  count = var.create_if_not_exists ? 1 : 0
+  
+  program = ["bash", "-c", <<-EOT
+    VPC_INFO=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${local.vpc_name}" --region "${var.aws_region}" --query 'Vpcs[0].[VpcId,CidrBlock]' --output text 2>/dev/null)
+    if [ -n "$VPC_INFO" ] && [ "$VPC_INFO" != "None" ]; then
+      VPC_ID=$(echo "$VPC_INFO" | cut -f1)
+      VPC_CIDR=$(echo "$VPC_INFO" | cut -f2)
+      if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
+        echo "{\"exists\": \"true\", \"vpc_id\": \"$VPC_ID\", \"cidr_block\": \"$VPC_CIDR\"}"
+      else
+        echo "{\"exists\": \"false\", \"vpc_id\": \"\", \"cidr_block\": \"\"}"
+      fi
+    else
+      echo "{\"exists\": \"false\", \"vpc_id\": \"\", \"cidr_block\": \"\"}"
+    fi
+  EOT
+  ]
+}
+
+# Determine if we need to create resources or use existing
+locals {
+  vpc_exists = var.create_if_not_exists ? (
+    try(data.external.check_vpc_exists[0].result.exists, "false") == "true"
+  ) : false
+  
+  existing_vpc_id = local.vpc_exists ? try(data.external.check_vpc_exists[0].result.vpc_id, "") : ""
+  
+  should_create = !local.vpc_exists
+}
+
+# Use data source to get existing VPC details if it exists
+data "aws_vpc" "existing" {
+  count = local.vpc_exists ? 1 : 0
+  id    = local.existing_vpc_id
+}
+
+data "aws_subnets" "existing_public" {
+  count = local.vpc_exists ? 1 : 0
+  
+  filter {
+    name   = "vpc-id"
+    values = [local.existing_vpc_id]
+  }
+  
+  filter {
+    name   = "tag:Tier"
+    values = ["public"]
+  }
+}
+
+data "aws_subnets" "existing_private" {
+  count = local.vpc_exists ? 1 : 0
+  
+  filter {
+    name   = "vpc-id"
+    values = [local.existing_vpc_id]
+  }
+  
+  filter {
+    name   = "tag:Tier"
+    values = ["private"]
+  }
+}
+
+data "aws_internet_gateway" "existing" {
+  count = local.vpc_exists ? 1 : 0
+  
+  filter {
+    name   = "attachment.vpc-id"
+    values = [local.existing_vpc_id]
+  }
+}
+
+# ============================================================================
+# CREATE NEW RESOURCES (only if VPC doesn't exist)
+# ============================================================================
+
 resource "aws_vpc" "this" {
+  count = local.should_create ? 1 : 0
+  
   cidr_block           = var.cidr_block
   enable_dns_support   = true
   enable_dns_hostnames = true
@@ -25,12 +112,13 @@ resource "aws_vpc" "this" {
   }
 
   tags = merge(local.tags, {
-    Name = "${var.name}-vpc"
+    Name = local.vpc_name
   })
 }
 
 resource "aws_internet_gateway" "this" {
-  vpc_id = aws_vpc.this.id
+  count  = local.should_create ? 1 : 0
+  vpc_id = aws_vpc.this[0].id
 
   tags = merge(local.tags, {
     Name = "${var.name}-igw"
@@ -39,18 +127,30 @@ resource "aws_internet_gateway" "this" {
 
 locals {
   az_count = length(var.availability_zones)
+  
+  # Use existing or created VPC ID
+  effective_vpc_id = local.should_create ? (
+    length(aws_vpc.this) > 0 ? aws_vpc.this[0].id : ""
+  ) : local.existing_vpc_id
+  
+  # Use existing or created IGW ID
+  effective_igw_id = local.should_create ? (
+    length(aws_internet_gateway.this) > 0 ? aws_internet_gateway.this[0].id : ""
+  ) : (
+    length(data.aws_internet_gateway.existing) > 0 ? data.aws_internet_gateway.existing[0].id : ""
+  )
 }
 
 resource "aws_subnet" "public" {
-  for_each = {
+  for_each = local.should_create ? {
     for idx, cidr in var.public_subnet_cidrs :
     idx => {
       cidr = cidr
       az   = var.availability_zones[idx]
     }
-  }
+  } : {}
 
-  vpc_id                  = aws_vpc.this.id
+  vpc_id                  = local.effective_vpc_id
   cidr_block              = each.value.cidr
   availability_zone       = each.value.az
   map_public_ip_on_launch = true
@@ -62,15 +162,15 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each = {
+  for_each = local.should_create ? {
     for idx, cidr in var.private_subnet_cidrs :
     idx => {
       cidr = cidr
       az   = var.availability_zones[idx]
     }
-  }
+  } : {}
 
-  vpc_id                  = aws_vpc.this.id
+  vpc_id                  = local.effective_vpc_id
   cidr_block              = each.value.cidr
   availability_zone       = each.value.az
   map_public_ip_on_launch = false
@@ -82,7 +182,7 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count      = var.enable_nat_gateway ? 1 : 0
+  count      = local.should_create && var.enable_nat_gateway ? 1 : 0
   domain     = "vpc"
   depends_on = [aws_internet_gateway.this]
 
@@ -92,7 +192,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "this" {
-  count         = var.enable_nat_gateway ? 1 : 0
+  count         = local.should_create && var.enable_nat_gateway ? 1 : 0
   allocation_id = aws_eip.nat[0].id
   subnet_id     = values(aws_subnet.public)[0].id
 
@@ -102,7 +202,8 @@ resource "aws_nat_gateway" "this" {
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
+  count  = local.should_create ? 1 : 0
+  vpc_id = local.effective_vpc_id
 
   tags = merge(local.tags, {
     Name = "${var.name}-public-rt"
@@ -110,22 +211,24 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route" "public_internet_access" {
-  route_table_id         = aws_route_table.public.id
+  count                  = local.should_create ? 1 : 0
+  route_table_id         = aws_route_table.public[0].id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.this.id
+  gateway_id             = local.effective_igw_id
 }
 
 resource "aws_route_table_association" "public" {
-  for_each = {
+  for_each = local.should_create ? {
     for idx, cidr in var.public_subnet_cidrs :
     tostring(idx) => cidr
-  }
+  } : {}
   subnet_id      = aws_subnet.public[each.key].id
-  route_table_id = aws_route_table.public.id
+  route_table_id = aws_route_table.public[0].id
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.this.id
+  count  = local.should_create ? 1 : 0
+  vpc_id = local.effective_vpc_id
 
   tags = merge(local.tags, {
     Name = "${var.name}-private-rt"
@@ -133,27 +236,31 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_outbound" {
-  count                  = var.enable_nat_gateway ? 1 : 0
-  route_table_id         = aws_route_table.private.id
+  count                  = local.should_create && var.enable_nat_gateway ? 1 : 0
+  route_table_id         = aws_route_table.private[0].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.this[0].id
 }
 
 resource "aws_route_table_association" "private" {
-  for_each = {
+  for_each = local.should_create ? {
     for idx, cidr in var.private_subnet_cidrs :
     tostring(idx) => cidr
-  }
+  } : {}
   subnet_id      = aws_subnet.private[each.key].id
-  route_table_id = aws_route_table.private.id
+  route_table_id = aws_route_table.private[0].id
 }
 
+# ============================================================================
+# SSM ENDPOINTS (create only if VPC is being created)
+# ============================================================================
+
 resource "aws_security_group" "ssm_endpoints" {
-  count = var.enable_ssm_endpoints ? 1 : 0
+  count = local.should_create && var.enable_ssm_endpoints ? 1 : 0
 
   name        = "${var.name}-ssm-endpoints"
   description = "Allow HTTPS access to SSM interface endpoints"
-  vpc_id      = aws_vpc.this.id
+  vpc_id      = local.effective_vpc_id
 
   ingress {
     from_port   = 443
@@ -175,8 +282,8 @@ resource "aws_security_group" "ssm_endpoints" {
 }
 
 resource "aws_vpc_endpoint" "ssm" {
-  for_each            = var.enable_ssm_endpoints ? { for svc in local.ssm_endpoint_services : svc => svc } : {}
-  vpc_id              = aws_vpc.this.id
+  for_each            = local.should_create && var.enable_ssm_endpoints ? { for svc in local.ssm_endpoint_services : svc => svc } : {}
+  vpc_id              = local.effective_vpc_id
   service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.value}"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for s in aws_subnet.private : s.id]

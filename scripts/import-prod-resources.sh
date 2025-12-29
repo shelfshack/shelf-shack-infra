@@ -1,113 +1,57 @@
 #!/bin/bash
-# Script to import existing production resources into Terraform state
-# Usage: ./scripts/import-prod-resources.sh
-#
-# This script imports resources that already exist in AWS but are not in Terraform state.
-# Run this once before your first terraform apply for prod.
+# Import existing prod resources into Terraform state
+# Run this BEFORE terraform apply if resources already exist in AWS but not in state
 
-set -euo pipefail
+set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_DIR="$PROJECT_ROOT/envs/prod"
+cd "$(dirname "$0")/../envs/prod"
 
-if [ ! -d "$ENV_DIR" ]; then
-  echo "Error: Environment directory not found: $ENV_DIR"
-  exit 1
+echo "=== Importing Existing Prod Resources into Terraform State ==="
+echo ""
+
+# Initialize Terraform if needed
+terraform init -upgrade
+
+echo ""
+echo "1. Importing RDS DB Subnet Group..."
+terraform import module.rds.aws_db_subnet_group.this shelfshack-prod-db-subnets 2>&1 || echo "   (may already be in state or doesn't exist)"
+
+echo ""
+echo "2. Importing RDS Instance..."
+terraform import module.rds.aws_db_instance.this shelfshack-prod-postgres 2>&1 || echo "   (may already be in state or doesn't exist)"
+
+echo ""
+echo "3. Importing VPC..."
+VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=shelfshack-prod-vpc" --query 'Vpcs[0].VpcId' --output text 2>/dev/null)
+if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
+  terraform import module.networking.aws_vpc.this[0] "$VPC_ID" 2>&1 || echo "   (may already be in state)"
 fi
 
-cd "$ENV_DIR"
-
-# Source terraform.tfvars to get resource names
-PROJECT=$(grep -E '^\s*project\s*=' terraform.tfvars 2>/dev/null | sed 's/.*=\s*"\(.*\)".*/\1/' | tr -d '"' || echo "shelfshack")
-ENVIRONMENT=$(grep -E '^\s*environment\s*=' terraform.tfvars 2>/dev/null | sed 's/.*=\s*"\(.*\)".*/\1/' | tr -d '"' || echo "prod")
-DEPLOY_ROLE_NAME=$(grep -E '^\s*deploy_role_name\s*=' terraform.tfvars 2>/dev/null | sed 's/.*=\s*"\(.*\)".*/\1/' | tr -d '"' || echo "${PROJECT}DeployRole")
-
-LOCAL_NAME="${PROJECT}-${ENVIRONMENT}"
-
-echo "=========================================="
-echo "Importing Production Resources"
-echo "=========================================="
-echo "Project: $PROJECT"
-echo "Environment: $ENVIRONMENT"
-echo "Local Name: $LOCAL_NAME"
 echo ""
-
-# Initialize terraform if needed
-if [ ! -d ".terraform" ]; then
-  echo "Initializing Terraform..."
-  terraform init >/dev/null 2>&1 || true
+echo "4. Importing Internet Gateway..."
+IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID" --query 'InternetGateways[0].InternetGatewayId' --output text 2>/dev/null)
+if [ -n "$IGW_ID" ] && [ "$IGW_ID" != "None" ]; then
+  terraform import module.networking.aws_internet_gateway.this[0] "$IGW_ID" 2>&1 || echo "   (may already be in state)"
 fi
 
-# Function to safely import a resource
-import_resource() {
-  local resource_address=$1
-  local resource_id=$2
-  local resource_name=$3
-  
-  echo -n "Importing $resource_name... "
-  
-  # Check if already in state
-  if terraform state list 2>/dev/null | grep -qE "^${resource_address}(\[0\])?$"; then
-    echo "✓ Already in state"
-    return 0
-  fi
-  
-  # Attempt import
-  if terraform import "$resource_address" "$resource_id" >/dev/null 2>&1; then
-    echo "✓ Success"
-    return 0
-  else
-    # Check if error is because it's already in state (different format)
-    if terraform state list 2>/dev/null | grep -qE "${resource_address}"; then
-      echo "✓ Already in state (different format)"
-      return 0
-    else
-      echo "✗ Failed (may not exist or different ID format)"
-      return 1
-    fi
-  fi
-}
-
-# 1. Import Deploy Role
 echo ""
-echo "1. IAM Roles"
-import_resource "aws_iam_role.deploy_role" "$DEPLOY_ROLE_NAME" "Deploy Role ($DEPLOY_ROLE_NAME)" || true
+echo "5. Importing Subnets..."
+# Import public subnets
+idx=0
+for subnet in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:Tier,Values=public" --query 'Subnets[*].SubnetId' --output text 2>/dev/null); do
+  terraform import "module.networking.aws_subnet.public[\"$idx\"]" "$subnet" 2>&1 || echo "   (may already be in state)"
+  ((idx++))
+done
 
-# 2. Import ECR Repository
-echo ""
-echo "2. ECR Repository"
-import_resource "module.ecr.aws_ecr_repository.this" "${LOCAL_NAME}-repo" "ECR Repository (${LOCAL_NAME}-repo)" || true
-
-# 3. Import OpenSearch EC2 IAM Role
-echo ""
-echo "3. OpenSearch EC2 IAM Role"
-import_resource "module.opensearch_ec2[0].aws_iam_role.opensearch" "${LOCAL_NAME}-opensearch-ec2-role" "OpenSearch EC2 Role" || true
-
-# 4. Import RDS DB Subnet Group
-echo ""
-echo "4. RDS DB Subnet Group"
-import_resource "module.rds.aws_db_subnet_group.this" "${LOCAL_NAME}-db-subnets" "RDS DB Subnet Group" || true
-
-# 5. Import DynamoDB Table
-echo ""
-echo "5. DynamoDB Table"
-import_resource "module.websocket_lambda.aws_dynamodb_table.websocket_connections" "${LOCAL_NAME}-websocket-connections" "WebSocket Connections Table" || true
-
-# 6. Import WebSocket Lambda IAM Role
-echo ""
-echo "6. WebSocket Lambda IAM Role"
-import_resource "module.websocket_lambda.aws_iam_role.lambda_role" "${LOCAL_NAME}-websocket-lambda-role" "WebSocket Lambda Role" || true
+# Import private subnets
+idx=0
+for subnet in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:Tier,Values=private" --query 'Subnets[*].SubnetId' --output text 2>/dev/null); do
+  terraform import "module.networking.aws_subnet.private[\"$idx\"]" "$subnet" 2>&1 || echo "   (may already be in state)"
+  ((idx++))
+done
 
 echo ""
-echo "=========================================="
-echo "Import Complete!"
-echo "=========================================="
+echo "=== Import Complete ==="
 echo ""
-echo "Next steps:"
-echo "1. Run 'terraform plan' to verify the imports"
-echo "2. Run 'terraform apply' to manage these resources"
-echo ""
-echo "Note: Some resources may need additional imports (like IAM role policies)."
-echo "      If you see errors, check the resource IDs and import manually."
-
+echo "Now run: terraform plan"
+echo "Then: terraform apply"
