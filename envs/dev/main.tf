@@ -227,6 +227,10 @@ module "networking" {
   enable_nat_gateway   = var.enable_nat_gateway
   enable_ssm_endpoints = var.enable_ssm_endpoints
   tags                 = local.tags
+  
+  # Enable "create if not exists" to prevent duplicate VPCs when state is lost
+  create_if_not_exists = true
+  aws_region           = var.aws_region
 }
 
 module "bastion" {
