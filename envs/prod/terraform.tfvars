@@ -15,7 +15,7 @@ bastion_allow_ssh_cidr_blocks = []
 
 container_image_tag = "latest"
 container_port      = 8000
-desired_count       = 3  # Production: Higher availability with multiple instances
+desired_count       = 1  # Production: Starting with 1 task, scale up as needed
 # Production: More CPU and memory for better performance
 cpu                 = 2048   # Production: More CPU
 memory              = 4096   # Production: More memory

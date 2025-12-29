@@ -40,3 +40,15 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_if_not_exists" {
+  description = "If true, check if VPC with the same name exists before creating. If it exists, use the existing VPC instead of creating a new one. This prevents duplicate VPC creation when Terraform state is lost."
+  type        = bool
+  default     = true
+}
+
+variable "aws_region" {
+  description = "AWS region for the VPC. Required for existence check when create_if_not_exists is true."
+  type        = string
+  default     = "us-east-1"
+}
