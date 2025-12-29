@@ -151,7 +151,7 @@ http_api_throttle_rate_limit = 100
 http_api_throttle_burst_limit = 50
 
 # Deploy Role Configuration
-deploy_role_name = "shelfshackDeployRole"
+deploy_role_name = "shelfshackDeployRole-prod"
 
 # Log retention
 log_retention_in_days = 90  # Production: Retain logs for 90 days

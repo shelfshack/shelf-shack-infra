@@ -166,16 +166,16 @@ output "backend_url" {
   value       = local.backend_url
 }
 
-# Deploy Role outputs - DISABLED (resources removed)
-# output "deploy_role_arn" {
-#   description = "ARN of the deploy role for CI/CD and Terraform operations"
-#   value       = aws_iam_role.deploy_role.arn
-# }
+# Deploy Role outputs
+output "deploy_role_arn" {
+  description = "ARN of the deploy role for CI/CD and Terraform operations"
+  value       = aws_iam_role.deploy_role.arn
+}
 
-# output "deploy_role_name" {
-#   description = "Name of the deploy role"
-#   value       = aws_iam_role.deploy_role.name
-# }
+output "deploy_role_name" {
+  description = "Name of the deploy role"
+  value       = aws_iam_role.deploy_role.name
+}
 
 # Amplify Branch outputs
 output "amplify_dev_branch_arn" {
