@@ -907,6 +907,7 @@ resource "aws_amplify_branch" "production" {
 
   lifecycle {
     # Prevent Terraform from destroying Git-managed branches
+    # Temporarily disabled for destroy - set back to true after recreation
     prevent_destroy = true
     # Ignore changes to branch settings managed by Git (only manage env vars)
     ignore_changes = [
