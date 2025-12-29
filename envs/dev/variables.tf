@@ -582,3 +582,9 @@ variable "amplify_prod_branch_name" {
   type        = string
   default     = "main"
 }
+
+variable "amplify_branch_environment_variables" {
+  description = "Environment variables to set on the Amplify branch"
+  type        = map(string)
+  default     = {}
+}

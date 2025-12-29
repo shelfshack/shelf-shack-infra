@@ -180,10 +180,10 @@ output "backend_url" {
 # Amplify Branch outputs
 output "amplify_dev_branch_arn" {
   description = "ARN of the Amplify development branch"
-  value       = var.amplify_app_id != null ? aws_amplify_branch.development[0].arn : null
+  value       = var.amplify_app_id != null && var.amplify_dev_branch_name != null && length(aws_amplify_branch.development) > 0 ? aws_amplify_branch.development[0].arn : null
 }
 
 output "amplify_dev_branch_environment_variables" {
   description = "Environment variables set on Amplify development branch"
-  value       = var.amplify_app_id != null ? aws_amplify_branch.development[0].environment_variables : null
+  value       = var.amplify_app_id != null && var.amplify_dev_branch_name != null && length(aws_amplify_branch.development) > 0 ? aws_amplify_branch.development[0].environment_variables : null
 }
