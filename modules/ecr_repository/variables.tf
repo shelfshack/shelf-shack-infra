@@ -30,3 +30,21 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_if_not_exists" {
+  description = "If true, check if repository exists before creating. If repository exists, use it instead of creating a new one. This prevents 'RepositoryAlreadyExistsException' errors."
+  type        = bool
+  default     = true
+}
+
+variable "force_delete" {
+  description = "If true, allows deleting the repository even if it contains images."
+  type        = bool
+  default     = false
+}
+
+variable "aws_region" {
+  description = "AWS region for the ECR repository. Required for existence check."
+  type        = string
+  default     = "us-east-1"
+}
