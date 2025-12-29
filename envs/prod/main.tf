@@ -249,6 +249,11 @@ module "ecr" {
   image_tag_mutability = var.image_tag_mutability
   scan_on_push         = var.scan_ecr_on_push
   tags                 = local.tags
+  
+  # Enable "create if not exists" behavior to prevent errors if repo already exists
+  create_if_not_exists = true
+  aws_region           = var.aws_region
+  force_delete         = true  # Allow destroy even with images
 }
 
 module "ecs_service" {
