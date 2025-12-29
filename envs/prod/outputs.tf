@@ -182,10 +182,10 @@ output "websocket_connections_table_name" {
 # Amplify Branch outputs
 output "amplify_prod_branch_arn" {
   description = "ARN of the Amplify production branch"
-  value       = var.amplify_app_id != null ? aws_amplify_branch.production[0].arn : null
+  value       = var.amplify_app_id != null && var.amplify_prod_branch_name != null && length(aws_amplify_branch.production) > 0 ? aws_amplify_branch.production[0].arn : null
 }
 
 output "amplify_prod_branch_environment_variables" {
   description = "Environment variables set on Amplify production branch"
-  value       = var.amplify_app_id != null ? aws_amplify_branch.production[0].environment_variables : null
+  value       = var.amplify_app_id != null && var.amplify_prod_branch_name != null && length(aws_amplify_branch.production) > 0 ? aws_amplify_branch.production[0].environment_variables : null
 }
