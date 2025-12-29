@@ -107,3 +107,16 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# Resilience variables
+variable "create_if_not_exists" {
+  description = "If true, check if resources exist before creating. If they exist, use them instead of creating new ones. This prevents 'already exists' errors when Terraform state is lost."
+  type        = bool
+  default     = true
+}
+
+variable "aws_region" {
+  description = "AWS region for resource existence checks. Required when create_if_not_exists is true."
+  type        = string
+  default     = "us-east-1"
+}

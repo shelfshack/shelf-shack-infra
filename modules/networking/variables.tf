@@ -35,6 +35,12 @@ variable "enable_ssm_endpoints" {
   default     = true
 }
 
+variable "enable_secretsmanager_endpoint" {
+  description = "Create VPC interface endpoint for Secrets Manager to allow private access to secrets."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Optional tags applied to networking resources."
   type        = map(string)
