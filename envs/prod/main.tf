@@ -226,6 +226,7 @@ module "networking" {
   private_subnet_cidrs = var.private_subnet_cidrs
   enable_nat_gateway   = var.enable_nat_gateway
   enable_ssm_endpoints = var.enable_ssm_endpoints
+  enable_secretsmanager_endpoint = true
   tags                 = local.tags
   
   # Enable "create if not exists" to prevent duplicate VPCs when state is lost
@@ -335,6 +336,10 @@ module "rds" {
   apply_immediately          = var.db_apply_immediately
   publicly_accessible        = var.db_publicly_accessible
   tags                       = local.tags
+  
+  # Resilience: Check if resources exist before creating
+  create_if_not_exists = true
+  aws_region           = var.aws_region
 }
 
 resource "aws_security_group_rule" "rds_from_ecs" {
@@ -650,6 +655,10 @@ module "websocket_lambda" {
   api_gateway_endpoint   = "https://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
   additional_environment_variables = var.websocket_lambda_environment_variables
   tags                  = local.tags
+  
+  # Resilience: Check if resources exist before creating
+  create_if_not_exists = true
+  aws_region           = var.aws_region
 }
 
 # API Gateway WebSocket Routes
@@ -861,23 +870,10 @@ data "aws_lb" "alb" {
 # }
 
 # ============================================================================
-# AWS Amplify Branch and Environment Variables
+# Amplify Branch Environment Variables Management
 # ============================================================================
-# Manages Amplify branch and environment variables for the frontend app
-# 
-# IMPORTANT: If the branch already exists in AWS but not in Terraform state,
-# you need to import it before terraform apply. Add this step to your CI/CD workflow
-# BEFORE running terraform apply:
-#
-#   - name: Import Amplify branch if exists
-#     run: |
-#       cd envs/prod
-#       terraform import aws_amplify_branch.production[0] d2xpdxn0utcezp/main || true
-#
-# Or use the import script:
-#   ./scripts/import-amplify-branch.sh prod
-#
-# The "|| true" ensures the workflow continues even if the branch is already in state.
+# NOTE: The Amplify branch (main) is managed externally by Git/Amplify.
+# Terraform only manages the environment variables - it does NOT create or destroy the branch.
 
 # Merge user-provided and computed environment variables
 locals {
@@ -889,23 +885,35 @@ locals {
       WS_API_ENDPOINT_PRODUCTION = "wss://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
     } : {}
   )
+  
+  # Convert env vars map to JSON for AWS CLI
+  amplify_env_vars_json = jsonencode(local.amplify_env_vars)
 }
 
-# Amplify branch resource - manages the branch and its environment variables
-# This properly sets environment variables in Amplify (unlike AWS CLI approach)
-resource "aws_amplify_branch" "production" {
+# Update Amplify branch environment variables using AWS CLI
+# This does NOT create or destroy the branch - only updates env vars
+resource "null_resource" "amplify_env_vars" {
   count = var.amplify_app_id != null && var.amplify_prod_branch_name != null ? 1 : 0
 
-  app_id      = var.amplify_app_id
-  branch_name = var.amplify_prod_branch_name
+  # Trigger update when env vars change
+  triggers = {
+    env_vars_hash = sha256(local.amplify_env_vars_json)
+    app_id        = var.amplify_app_id
+    branch_name   = var.amplify_prod_branch_name
+  }
 
-  # Environment variables - this properly sets them in Amplify
-  environment_variables = local.amplify_env_vars
-
-  # Enable auto build
-  enable_auto_build = true
-
-  tags = local.tags
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Updating Amplify branch environment variables..."
+      aws amplify update-branch \
+        --app-id ${var.amplify_app_id} \
+        --branch-name ${var.amplify_prod_branch_name} \
+        --environment-variables '${local.amplify_env_vars_json}' \
+        --region ${var.aws_region} \
+        && echo "✓ Environment variables updated successfully" \
+        || echo "⚠ Failed to update environment variables (branch may not exist yet)"
+    EOT
+  }
 
   depends_on = [
     aws_apigatewayv2_api.backend,
@@ -913,22 +921,5 @@ resource "aws_amplify_branch" "production" {
     aws_apigatewayv2_stage.backend,
     aws_apigatewayv2_stage.websocket
   ]
-
-  lifecycle {
-    # Prevent Terraform from destroying Git-managed branches
-    # Temporarily disabled for destroy - set back to true after recreation
-    prevent_destroy = true
-    # Ignore changes to branch settings managed by Git (only manage env vars)
-    ignore_changes = [
-      stage,
-      enable_pull_request_preview,
-      enable_auto_build,
-      enable_performance_mode,
-      enable_basic_auth,
-      ttl,
-      display_name,
-      enable_notification
-    ]
-  }
 }
 

@@ -48,8 +48,17 @@ locals {
 
   use_alb = var.enable_load_balancer
 
+  # Determine which subnets to use
+  # Priority: explicit service_subnet_ids > ALB (private) > no ALB (public, fallback to private if empty)
+  # Always validate we have valid subnets
   service_subnet_ids = length(var.service_subnet_ids) > 0 ? var.service_subnet_ids : (
-    var.enable_load_balancer ? var.private_subnet_ids : var.public_subnet_ids
+    var.enable_load_balancer ? (
+      length(var.private_subnet_ids) > 0 ? var.private_subnet_ids : var.public_subnet_ids
+    ) : (
+      length(var.public_subnet_ids) > 0 ? var.public_subnet_ids : (
+        length(var.private_subnet_ids) > 0 ? var.private_subnet_ids : []
+      )
+    )
   )
 
   assign_public_ip = var.enable_load_balancer ? var.assign_public_ip : true
@@ -542,6 +551,14 @@ resource "aws_ecs_service" "this" {
     )
   }
 
+  lifecycle {
+    ignore_changes = [desired_count]
+    precondition {
+      condition     = length(local.service_subnet_ids) > 0
+      error_message = "ECS service requires at least one subnet. Check that subnets exist in the VPC and are properly tagged (Tier=public or Tier=private)."
+    }
+  }
+
   dynamic "load_balancer" {
     for_each = local.use_alb ? [aws_lb_target_group.this[0].arn] : []
     content {
@@ -551,9 +568,6 @@ resource "aws_ecs_service" "this" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [desired_count]
-  }
 
   tags = merge(local.tags, {
     Name = "${var.name}-service"

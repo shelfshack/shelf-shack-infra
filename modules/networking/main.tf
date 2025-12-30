@@ -12,6 +12,10 @@ locals {
     "ec2messages"
   ]
   
+  secretsmanager_services = [
+    "secretsmanager"
+  ]
+  
   vpc_name = "${var.name}-vpc"
 }
 
@@ -48,6 +52,16 @@ locals {
   existing_vpc_id = local.vpc_exists ? try(data.external.check_vpc_exists[0].result.vpc_id, "") : ""
   
   should_create = !local.vpc_exists
+
+  igw_exists = local.vpc_exists ? (try(data.external.check_igw_exists[0].result.exists, "false") == "true") : false
+  existing_igw_id = local.igw_exists ? try(data.external.check_igw_exists[0].result.igw_id, "") : ""
+  should_create_igw_for_existing_vpc = local.vpc_exists && !local.igw_exists
+
+  existing_public_subnet_ids  = local.vpc_exists ? try(data.aws_subnets.existing_public[0].ids, []) : []
+  existing_private_subnet_ids = local.vpc_exists ? try(data.aws_subnets.existing_private[0].ids, []) : []
+
+  should_create_public_subnets  = !local.vpc_exists || length(local.existing_public_subnet_ids) == 0
+  should_create_private_subnets = !local.vpc_exists || length(local.existing_private_subnet_ids) == 0
 }
 
 # Use data source to get existing VPC details if it exists
@@ -84,13 +98,19 @@ data "aws_subnets" "existing_private" {
   }
 }
 
-data "aws_internet_gateway" "existing" {
+# Check if IGW already exists for the VPC (CLI to avoid hard failure)
+data "external" "check_igw_exists" {
   count = local.vpc_exists ? 1 : 0
-  
-  filter {
-    name   = "attachment.vpc-id"
-    values = [local.existing_vpc_id]
-  }
+
+  program = ["bash", "-c", <<-EOT
+    IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=${local.existing_vpc_id}" --region "${var.aws_region}" --query 'InternetGateways[0].InternetGatewayId' --output text 2>/dev/null)
+    if [ -n "$IGW_ID" ] && [ "$IGW_ID" != "None" ]; then
+      echo "{\"exists\": \"true\", \"igw_id\": \"$IGW_ID\"}"
+    else
+      echo "{\"exists\": \"false\", \"igw_id\": \"\"}"
+    fi
+  EOT
+  ]
 }
 
 # ============================================================================
@@ -117,8 +137,9 @@ resource "aws_vpc" "this" {
 }
 
 resource "aws_internet_gateway" "this" {
-  count  = local.should_create ? 1 : 0
-  vpc_id = aws_vpc.this[0].id
+  # Create IGW if creating VPC, or if VPC exists but no IGW is attached
+  count  = local.should_create || local.should_create_igw_for_existing_vpc ? 1 : 0
+  vpc_id = local.should_create ? aws_vpc.this[0].id : local.existing_vpc_id
 
   tags = merge(local.tags, {
     Name = "${var.name}-igw"
@@ -137,12 +158,19 @@ locals {
   effective_igw_id = local.should_create ? (
     length(aws_internet_gateway.this) > 0 ? aws_internet_gateway.this[0].id : ""
   ) : (
-    length(data.aws_internet_gateway.existing) > 0 ? data.aws_internet_gateway.existing[0].id : ""
+    local.igw_exists ? local.existing_igw_id : (
+      length(aws_internet_gateway.this) > 0 ? aws_internet_gateway.this[0].id : ""
+    )
   )
+
+  effective_public_subnet_ids = local.should_create_public_subnets ? [for s in aws_subnet.public : s.id] : local.existing_public_subnet_ids
+  effective_private_subnet_ids = local.should_create_private_subnets ? [for s in aws_subnet.private : s.id] : local.existing_private_subnet_ids
+
+  have_igw = length(local.effective_igw_id) > 0
 }
 
 resource "aws_subnet" "public" {
-  for_each = local.should_create ? {
+  for_each = local.should_create_public_subnets ? {
     for idx, cidr in var.public_subnet_cidrs :
     idx => {
       cidr = cidr
@@ -162,7 +190,7 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each = local.should_create ? {
+  for_each = local.should_create_private_subnets ? {
     for idx, cidr in var.private_subnet_cidrs :
     idx => {
       cidr = cidr
@@ -202,7 +230,7 @@ resource "aws_nat_gateway" "this" {
 }
 
 resource "aws_route_table" "public" {
-  count  = local.should_create ? 1 : 0
+  count  = (local.should_create || local.should_create_public_subnets) ? 1 : 0
   vpc_id = local.effective_vpc_id
 
   tags = merge(local.tags, {
@@ -211,14 +239,28 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route" "public_internet_access" {
-  count                  = local.should_create ? 1 : 0
+  # Create route only when:
+  # 1. Creating new VPC (IGW will be created via aws_internet_gateway.this[0])
+  # 2. IGW exists for existing VPC (use existing_igw_id)
+  # 3. Creating IGW for existing VPC (use aws_internet_gateway.this[0])
+  count = (local.should_create || local.igw_exists || local.should_create_igw_for_existing_vpc) && (local.should_create || local.should_create_public_subnets) ? 1 : 0
+  
   route_table_id         = aws_route_table.public[0].id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = local.effective_igw_id
+  
+  # Use IGW ID based on scenario:
+  # - If creating new VPC or IGW for existing: use the created IGW
+  # - If IGW exists: use existing IGW ID
+  gateway_id = (local.should_create || local.should_create_igw_for_existing_vpc) ? (
+    length(aws_internet_gateway.this) > 0 ? aws_internet_gateway.this[0].id : local.existing_igw_id
+  ) : local.existing_igw_id
+
+  # Wait for IGW to be created/attached before creating route
+  depends_on = [aws_internet_gateway.this]
 }
 
 resource "aws_route_table_association" "public" {
-  for_each = local.should_create ? {
+  for_each = local.should_create_public_subnets ? {
     for idx, cidr in var.public_subnet_cidrs :
     tostring(idx) => cidr
   } : {}
@@ -227,7 +269,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_route_table" "private" {
-  count  = local.should_create ? 1 : 0
+  count  = (local.should_create || local.should_create_private_subnets) ? 1 : 0
   vpc_id = local.effective_vpc_id
 
   tags = merge(local.tags, {
@@ -236,14 +278,14 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_outbound" {
-  count                  = local.should_create && var.enable_nat_gateway ? 1 : 0
+  count                  = (local.should_create || local.should_create_private_subnets) && var.enable_nat_gateway ? 1 : 0
   route_table_id         = aws_route_table.private[0].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.this[0].id
 }
 
 resource "aws_route_table_association" "private" {
-  for_each = local.should_create ? {
+  for_each = local.should_create_private_subnets ? {
     for idx, cidr in var.private_subnet_cidrs :
     tostring(idx) => cidr
   } : {}
@@ -283,6 +325,21 @@ resource "aws_security_group" "ssm_endpoints" {
 
 resource "aws_vpc_endpoint" "ssm" {
   for_each            = local.should_create && var.enable_ssm_endpoints ? { for svc in local.ssm_endpoint_services : svc => svc } : {}
+  vpc_id              = local.effective_vpc_id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.value}"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [for s in aws_subnet.private : s.id]
+  security_group_ids  = [aws_security_group.ssm_endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = merge(local.tags, {
+    Name = "${var.name}-${each.value}-endpoint"
+  })
+}
+
+# Secrets Manager endpoint (optional, for private access to secrets)
+resource "aws_vpc_endpoint" "secretsmanager" {
+  for_each            = local.should_create && var.enable_secretsmanager_endpoint ? { for svc in local.secretsmanager_services : svc => svc } : {}
   vpc_id              = local.effective_vpc_id
   service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.value}"
   vpc_endpoint_type   = "Interface"
