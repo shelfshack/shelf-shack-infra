@@ -48,3 +48,4 @@ output "lambda_created" {
   description = "Whether the Lambda function was created by this module"
   value       = local.should_create_lambda
 }
+
