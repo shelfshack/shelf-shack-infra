@@ -4,7 +4,7 @@
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::506852294788:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::397562346696:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -19,7 +19,7 @@
     {
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::506852294788:user/rentify-user"
+        "AWS": "arn:aws:iam::397562346696:user/rentify-user"
       },
       "Action": "sts:AssumeRole"
     }

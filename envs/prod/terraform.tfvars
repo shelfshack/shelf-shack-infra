@@ -50,43 +50,43 @@ force_new_deployment = false  # Production: Don't force deployment on every appl
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:DATABASE_URL::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_CLIENT_ID::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_CLIENT_ID::"
   },
   {
     name       = "SMTP_SERVER"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_SERVER::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_SERVER::"
   },
   {
     name       = "SMTP_PORT"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PORT::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PORT::"
   },
   {
     name       = "SMTP_USERNAME"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_USERNAME::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_USERNAME::"
   },
   {
     name       = "SMTP_PASSWORD"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PASSWORD::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PASSWORD::"
   },
   {
     name       = "EMAILS_FROM_EMAIL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:EMAILS_FROM_EMAIL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:EMAILS_FROM_EMAIL::"
   },
   {
     name       = "FRONTEND_BASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:FRONTEND_BASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:FRONTEND_BASE_URL::"
   },
   {
     name       = "STRIPE_SECRET_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:STRIPE_SECRET_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:STRIPE_SECRET_KEY::"
   },
   {
     name       = "GOOGLE_MAPS_API_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_MAPS_API_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_MAPS_API_KEY::"
   }
 ]
 
@@ -94,7 +94,7 @@ app_secrets = [
 db_master_username  = "dbadmin_shelfshack"
 # db_master_password is intentionally unset; provide it via TF_VAR_DB_MASTER_PASSWORD in CI/secrets.
 # Recommended: Use AWS Secrets Manager for production
-# db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/prod/db-password-XXXXXX"
+# db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:397562346696:secret:shelfshack/prod/db-password-XXXXXX"
 db_allocated_storage = 20  # Free Tier: Maximum 20 GB (upgrade account for more)
 db_engine_version    = "17.6"
 db_multi_az          = false  # Free Tier: Multi-AZ not available (upgrade account to enable)
@@ -107,7 +107,7 @@ db_publicly_accessible   = false
 
 # Replace ACCOUNT_ID with your AWS account ID
 opensearch_iam_role_arns = [
-  "arn:aws:iam::506852294788:role/shelfshackDeployRole"
+  "arn:aws:iam::397562346696:role/shelfshackDeployRole"
 ]
 
 # Optional: Add your IP for Kibana access (leave empty if not needed)

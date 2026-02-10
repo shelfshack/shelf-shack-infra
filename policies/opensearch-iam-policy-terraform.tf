@@ -16,13 +16,13 @@ data "aws_iam_policy_document" "opensearch_access" {
       "es:ESHttpPut",
       "es:ESHttpDelete"
     ]
-    resources = ["arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"]
+    resources = ["arn:aws:es:us-east-1:397562346696:domain/shelfshack-search/*"]
   }
 
   statement {
     effect = "Deny"
     actions = ["es:*"]
-    not_resources = ["arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"]
+    not_resources = ["arn:aws:es:us-east-1:397562346696:domain/shelfshack-search/*"]
   }
 }
 
@@ -44,13 +44,13 @@ resource "aws_iam_role_policy" "task_opensearch" {
 #       "es:ESHttpPut",
 #       "es:ESHttpDelete"
 #     ]
-#     resources = ["arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"]
+#     resources = ["arn:aws:es:us-east-1:397562346696:domain/shelfshack-search/*"]
 #   }
 #
 #   statement {
 #     effect = "Deny"
 #     actions = ["es:*"]
-#     not_resources = ["arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"]
+#     not_resources = ["arn:aws:es:us-east-1:397562346696:domain/shelfshack-search/*"]
 #   }
 # }
 #
