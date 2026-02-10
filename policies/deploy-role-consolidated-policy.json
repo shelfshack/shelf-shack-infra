@@ -5,8 +5,8 @@
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": [
-        "arn:aws:iam::506852294788:role/shelfshack-*-execution-role",
-        "arn:aws:iam::506852294788:role/shelfshack-*-task-role"
+        "arn:aws:iam::397562346696:role/shelfshack-*-execution-role",
+        "arn:aws:iam::397562346696:role/shelfshack-*-task-role"
       ]
     },
     {
@@ -19,7 +19,7 @@
         "iam:GetPolicyVersion",
         "iam:ListPolicyVersions"
       ],
-      "Resource": "arn:aws:iam::506852294788:policy/shelfshack-dev-execution-secrets"
+      "Resource": "arn:aws:iam::397562346696:policy/shelfshack-dev-execution-secrets"
     },
     {
       "Sid": "AttachExecutionSecretsPolicy1",
@@ -29,9 +29,9 @@
         "iam:DetachRolePolicy"
       ],
       "Resource": [
-        "arn:aws:iam::506852294788:policy/shelfshack-dev-execution-secrets",
-        "arn:aws:iam::506852294788:role/shelfshack-dev-execution-role",
-        "arn:aws:iam::506852294788:role/shelfshack-dev-task-role"
+        "arn:aws:iam::397562346696:policy/shelfshack-dev-execution-secrets",
+        "arn:aws:iam::397562346696:role/shelfshack-dev-execution-role",
+        "arn:aws:iam::397562346696:role/shelfshack-dev-task-role"
       ]
     },
     {
@@ -73,7 +73,7 @@
       ],
       "Resource": [
         "*",
-        "arn:aws:ec2:us-east-1:506852294788:instance/*"
+        "arn:aws:ec2:us-east-1:397562346696:instance/*"
       ]
     },
     {
@@ -90,8 +90,8 @@
         "iam:PassRole"
       ],
       "Resource": [
-        "arn:aws:iam::506852294788:role/shelfshack-*-execution-role",
-        "arn:aws:iam::506852294788:role/shelfshack-*-task-role"
+        "arn:aws:iam::397562346696:role/shelfshack-*-execution-role",
+        "arn:aws:iam::397562346696:role/shelfshack-*-task-role"
       ]
     },
     {
@@ -134,10 +134,10 @@
         "iam:GetInstanceProfile"
       ],
       "Resource": [
-        "arn:aws:iam::506852294788:role/shelfshack-*-execution-role",
-        "arn:aws:iam::506852294788:role/shelfshack-*-task-role",
-        "arn:aws:iam::506852294788:role/shelfshack-dev-bastion-role",
-        "arn:aws:iam::506852294788:instance-profile/shelfshack-dev-bastion-profile"
+        "arn:aws:iam::397562346696:role/shelfshack-*-execution-role",
+        "arn:aws:iam::397562346696:role/shelfshack-*-task-role",
+        "arn:aws:iam::397562346696:role/shelfshack-dev-bastion-role",
+        "arn:aws:iam::397562346696:instance-profile/shelfshack-dev-bastion-profile"
       ]
     },
     {
@@ -277,8 +277,8 @@
         "iam:PassRole"
       ],
       "Resource": [
-        "arn:aws:iam::506852294788:role/shelfshack-dev-execution-role",
-        "arn:aws:iam::506852294788:role/shelfshack-dev-task-role"
+        "arn:aws:iam::397562346696:role/shelfshack-dev-execution-role",
+        "arn:aws:iam::397562346696:role/shelfshack-dev-task-role"
       ]
     },
     {
@@ -292,7 +292,7 @@
         "iam:ListPolicyVersions",
         "iam:TagPolicy"
       ],
-      "Resource": "arn:aws:iam::506852294788:policy/shelfshack-dev-execution-secrets"
+      "Resource": "arn:aws:iam::397562346696:policy/shelfshack-dev-execution-secrets"
     },
     {
       "Sid": "AttachExecutionSecretsPolicy2",
@@ -302,8 +302,8 @@
         "iam:DetachRolePolicy"
       ],
       "Resource": [
-        "arn:aws:iam::506852294788:role/shelfshack-dev-execution-role",
-        "arn:aws:iam::506852294788:role/shelfshack-dev-task-role"
+        "arn:aws:iam::397562346696:role/shelfshack-dev-execution-role",
+        "arn:aws:iam::397562346696:role/shelfshack-dev-task-role"
       ]
     },
     {
@@ -333,7 +333,7 @@
         "dynamodb:DeleteItem",
         "dynamodb:Scan"
       ],
-      "Resource": "arn:aws:dynamodb:us-east-1:506852294788:table/shelfshack-terraform-locks"
+      "Resource": "arn:aws:dynamodb:us-east-1:397562346696:table/shelfshack-terraform-locks"
     },
     {
       "Sid": "AllowReadParameterStore",
@@ -343,8 +343,8 @@
         "ssm:GetParameters"
       ],
       "Resource": [
-        "arn:aws:ssm:us-east-1:506852294788:parameter/shelfshack/*/database_url",
-        "arn:aws:ssm:us-east-1:506852294788:parameter/shelfshack/*/redis_url"
+        "arn:aws:ssm:us-east-1:397562346696:parameter/shelfshack/*/database_url",
+        "arn:aws:ssm:us-east-1:397562346696:parameter/shelfshack/*/redis_url"
       ]
     },
     {
@@ -354,8 +354,8 @@
         "secretsmanager:GetSecretValue"
       ],
       "Resource": [
-        "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/*/jwt-secret-*",
-        "arn:aws:secretsmanager:us-east-1:506852294788:secret:shelfshack/*/stripe-key-*"
+        "arn:aws:secretsmanager:us-east-1:397562346696:secret:shelfshack/*/jwt-secret-*",
+        "arn:aws:secretsmanager:us-east-1:397562346696:secret:shelfshack/*/stripe-key-*"
       ]
     },
     {
@@ -368,7 +368,7 @@
         "s3:PutBucketVersioning",
         "s3:GetEncryptionConfiguration"
       ],
-      "Resource": "arn:aws:s3:::shelfshack-terraform-state"
+      "Resource": "arn:aws:s3:::shelfshack-terraform-state-v2"
     },
     {
       "Sid": "ObjectLevelStateAccess",
@@ -378,7 +378,7 @@
         "s3:PutObject",
         "s3:DeleteObject"
       ],
-      "Resource": "arn:aws:s3:::shelfshack-terraform-state/*"
+      "Resource": "arn:aws:s3:::shelfshack-terraform-state-v2/*"
     },
     {
       "Sid": "Statement1",
@@ -402,7 +402,7 @@
       ],
       "Resource": [
         "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/*",
-        "arn:aws:iam::506852294788:role/shelfshack-dev-bastion-role"
+        "arn:aws:iam::397562346696:role/shelfshack-dev-bastion-role"
       ]
     },
     {

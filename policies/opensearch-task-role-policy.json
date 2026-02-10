@@ -9,14 +9,14 @@
         "es:ESHttpPut",
         "es:ESHttpDelete"
       ],
-      "Resource": "arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"
+      "Resource": "arn:aws:es:us-east-1:397562346696:domain/shelfshack-search/*"
     },
     {
       "Effect": "Deny",
       "Action": [
         "es:*"
       ],
-      "NotResource": "arn:aws:es:us-east-1:506852294788:domain/shelfshack-search/*"
+      "NotResource": "arn:aws:es:us-east-1:397562346696:domain/shelfshack-search/*"
     }
   ]
 }

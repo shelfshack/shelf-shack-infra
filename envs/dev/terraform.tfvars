@@ -48,43 +48,43 @@ force_new_deployment = true
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:DATABASE_URL::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:GOOGLE_CLIENT_ID::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:GOOGLE_CLIENT_ID::"
   },
   {
     name       = "SMTP_SERVER"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_SERVER::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:SMTP_SERVER::"
   },
   {
     name       = "SMTP_PORT"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_PORT::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:SMTP_PORT::"
   },
   {
     name       = "SMTP_USERNAME"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_USERNAME::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:SMTP_USERNAME::"
   },
   {
     name       = "SMTP_PASSWORD"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:SMTP_PASSWORD::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:SMTP_PASSWORD::"
   },
   {
     name       = "EMAILS_FROM_EMAIL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:EMAILS_FROM_EMAIL::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:EMAILS_FROM_EMAIL::"
   },
   {
     name       = "FRONTEND_BASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:FRONTEND_BASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:FRONTEND_BASE_URL::"
   },
   {
     name       = "STRIPE_SECRET_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:STRIPE_SECRET_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:STRIPE_SECRET_KEY::"
   },
   {
     name       = "GOOGLE_MAPS_API_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:506852294788:secret:dev/shelfshack/backend_secrets-OEhS1N:GOOGLE_MAPS_API_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-2:397562346696:secret:dev/shelfshack/backend_secrets-DqvBnE:GOOGLE_MAPS_API_KEY::"
   }
 ]
 
@@ -103,7 +103,7 @@ db_publicly_accessible   = false
 
 # Replace ACCOUNT_ID with your AWS account ID
 opensearch_iam_role_arns = [
-  "arn:aws:iam::506852294788:role/shelfshackDeployRole"
+  "arn:aws:iam::397562346696:role/shelfshackDeployRole"
 ]
 
 # Optional: Add your IP for Kibana access (leave empty if not needed)
