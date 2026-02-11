@@ -278,7 +278,7 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_outbound" {
-  count                  = (local.should_create || local.should_create_private_subnets) && var.enable_nat_gateway ? 1 : 0
+  count                  = length(aws_nat_gateway.this) > 0 ? 1 : 0
   route_table_id         = aws_route_table.private[0].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.this[0].id
