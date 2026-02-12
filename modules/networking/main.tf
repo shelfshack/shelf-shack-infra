@@ -125,6 +125,12 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
 
   lifecycle {
+    # Prevent accidental destruction of VPC
+    prevent_destroy = false  # Set to true in production for extra safety
+
+    # Ignore changes to tags to prevent replacement
+    ignore_changes = [tags]
+
     precondition {
       condition     = length(var.availability_zones) == length(var.public_subnet_cidrs) && length(var.availability_zones) == length(var.private_subnet_cidrs)
       error_message = "availability_zones must match the number of public and private subnet CIDRs."
