@@ -162,6 +162,6 @@ deployment_minimum_healthy_percent = 50  # Production: Allow rolling updates
 
 # Amplify App Environment Variables Management
 # Set amplify_app_id to manage environment variables for existing Amplify app
-amplify_app_id = "d2xpdxn0utcezp"
+amplify_app_id = "d26vv4xxnh3x3s"
 amplify_prod_branch_name = "main"
 
