@@ -139,5 +139,5 @@ deploy_role_name = "shelfshackDeployRole-dev"
 
 # Amplify App Environment Variables Management
 # Set amplify_app_id to manage environment variables for existing Amplify app
-amplify_app_id = "d2xpdxn0utcezp"
+amplify_app_id = "d26vv4xxnh3x3s"
 amplify_dev_branch_name = "develop"

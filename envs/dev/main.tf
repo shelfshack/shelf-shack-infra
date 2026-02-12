@@ -878,7 +878,7 @@ resource "aws_apigatewayv2_route" "backend_root" {
 #   - name: Import Amplify branch if exists
 #     run: |
 #       cd envs/dev
-#       terraform import aws_amplify_branch.development[0] d2xpdxn0utcezp/develop || true
+#       terraform import aws_amplify_branch.development[0] d26vv4xxnh3x3s/develop || true
 #
 # Or use the import script:
 #   ./scripts/import-amplify-branch.sh dev
