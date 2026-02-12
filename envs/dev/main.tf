@@ -349,7 +349,7 @@ module "ecs_service" {
   enable_opensearch_access             = false
   tags                                 = local.tags
 
-  depends_on = [module.rds]
+  depends_on = [module.rds, module.networking]
 }
 
 module "rds" {
