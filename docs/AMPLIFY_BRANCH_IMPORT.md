@@ -5,8 +5,8 @@
 When deploying infrastructure via CI/CD, you may encounter this error:
 
 ```
-Error: creating Amplify Branch (d2xpdxn0utcezp/develop): operation error Amplify: CreateBranch, 
-BadRequestException: Failed to create branch. The branch develop already exists for the app d2xpdxn0utcezp
+Error: creating Amplify Branch (d26vv4xxnh3x3s/develop): operation error Amplify: CreateBranch, 
+BadRequestException: Failed to create branch. The branch develop already exists for the app d26vv4xxnh3x3s
 ```
 
 This happens when:
@@ -27,7 +27,7 @@ Add this step to your `.github/workflows/deploy.yml` file in the **backend repos
   working-directory: envs/dev  # or envs/prod for production
   run: |
     terraform init -backend-config=backend.tf || true
-    terraform import aws_amplify_branch.development[0] d2xpdxn0utcezp/develop || true
+    terraform import aws_amplify_branch.development[0] d26vv4xxnh3x3s/develop || true
   continue-on-error: true
 ```
 
@@ -37,7 +37,7 @@ Add this step to your `.github/workflows/deploy.yml` file in the **backend repos
   working-directory: envs/prod
   run: |
     terraform init -backend-config=backend.tf || true
-    terraform import aws_amplify_branch.production[0] d2xpdxn0utcezp/main || true
+    terraform import aws_amplify_branch.production[0] d26vv4xxnh3x3s/main || true
   continue-on-error: true
 ```
 
@@ -65,7 +65,7 @@ If you're setting up for the first time, you can import manually:
 ```bash
 cd envs/dev
 terraform init
-terraform import aws_amplify_branch.development[0] d2xpdxn0utcezp/develop
+terraform import aws_amplify_branch.development[0] d26vv4xxnh3x3s/develop
 ```
 
 After importing, the branch will be managed by Terraform and the error won't occur again.
@@ -97,7 +97,7 @@ Here's a complete example of how your terraform apply step should look:
   working-directory: shelf-shack-infra/envs/dev
   run: |
     terraform init -backend-config=backend.tf || true
-    terraform import aws_amplify_branch.development[0] d2xpdxn0utcezp/develop || true
+    terraform import aws_amplify_branch.development[0] d26vv4xxnh3x3s/develop || true
   continue-on-error: true
 
 - name: Terraform Apply

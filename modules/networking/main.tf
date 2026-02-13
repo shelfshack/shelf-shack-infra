@@ -125,6 +125,12 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
 
   lifecycle {
+    # Prevent accidental destruction of VPC
+    prevent_destroy = false  # Set to true in production for extra safety
+
+    # Ignore changes to tags to prevent replacement
+    ignore_changes = [tags]
+
     precondition {
       condition     = length(var.availability_zones) == length(var.public_subnet_cidrs) && length(var.availability_zones) == length(var.private_subnet_cidrs)
       error_message = "availability_zones must match the number of public and private subnet CIDRs."
@@ -278,7 +284,7 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_outbound" {
-  count                  = (local.should_create || local.should_create_private_subnets) && var.enable_nat_gateway ? 1 : 0
+  count                  = length(aws_nat_gateway.this) > 0 ? 1 : 0
   route_table_id         = aws_route_table.private[0].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.this[0].id
