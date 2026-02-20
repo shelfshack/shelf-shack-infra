@@ -1,0 +1,89 @@
+# Terraform Apply with optional deploy-only (ECS + Lambda + Amplify env vars only).
+# Handles stale state lock by force-unlocking and retrying once.
+#
+# Required secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (or use OIDC)
+# Optional: TF_VAR_* for Terraform variables
+
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      deploy_only:
+        description: 'Deploy only (ECS, Lambda, Amplify env vars, API Gateway integrations) - no infra changes'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: terraform-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  TF_INPUT: false
+
+jobs:
+  terraform:
+    name: Terraform Apply (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: envs/${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -reconfigure
+
+      - name: Terraform Plan (full)
+        if: inputs.deploy_only != true
+        run: terraform plan -var-file=terraform.tfvars -out=tfplan
+
+      - name: Terraform Plan (deploy-only)
+        if: inputs.deploy_only == true
+        run: |
+          terraform plan -var-file=terraform.tfvars \
+            -target=module.ecs_service \
+            -target=module.websocket_lambda \
+            -target=aws_apigatewayv2_integration.backend \
+            -target=aws_apigatewayv2_integration.backend_root \
+            -target=null_resource.amplify_env_vars[0] \
+            -out=tfplan
+
+      - name: Terraform Apply (full)
+        if: inputs.deploy_only != true
+        run: bash ../../scripts/terraform-apply-with-unlock-retry.sh -auto-approve
+
+      - name: Terraform Apply (deploy-only)
+        if: inputs.deploy_only == true
+        run: |
+          bash ../../scripts/terraform-apply-with-unlock-retry.sh -auto-approve \
+            -target=module.ecs_service \
+            -target=module.websocket_lambda \
+            -target=aws_apigatewayv2_integration.backend \
+            -target=aws_apigatewayv2_integration.backend_root \
+            -target=null_resource.amplify_env_vars[0]
