@@ -50,43 +50,43 @@ force_new_deployment = false  # Production: Don't force deployment on every appl
 app_secrets = [
   {
     name       = "DATABASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:DATABASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:DATABASE_URL::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_CLIENT_ID::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:GOOGLE_CLIENT_ID::"
   },
   {
     name       = "SMTP_SERVER"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_SERVER::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:SMTP_SERVER::"
   },
   {
     name       = "SMTP_PORT"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PORT::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:SMTP_PORT::"
   },
   {
     name       = "SMTP_USERNAME"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_USERNAME::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:SMTP_USERNAME::"
   },
   {
     name       = "SMTP_PASSWORD"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:SMTP_PASSWORD::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:SMTP_PASSWORD::"
   },
   {
     name       = "EMAILS_FROM_EMAIL"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:EMAILS_FROM_EMAIL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:EMAILS_FROM_EMAIL::"
   },
   {
     name       = "FRONTEND_BASE_URL"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:FRONTEND_BASE_URL::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:FRONTEND_BASE_URL::"
   },
   {
     name       = "STRIPE_SECRET_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:STRIPE_SECRET_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:STRIPE_SECRET_KEY::"
   },
   {
     name       = "GOOGLE_MAPS_API_KEY"
-    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-TGTPyL:GOOGLE_MAPS_API_KEY::"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:GOOGLE_MAPS_API_KEY::"
   }
 ]
 

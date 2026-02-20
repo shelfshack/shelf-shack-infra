@@ -24,7 +24,7 @@ cd envs/dev   # or envs/prod
 terraform force-unlock 3b9a0bc3-b8f1-50f3-52f9-53659b56a628
 ```
 
-Use the **exact Lock ID** from your error message (the UUID in `Lock Info: ID:`).
+Use the **exact Lock ID** from your error message (the UUID in `Lock Info: ID:`). Use the same environment as in the error (e.g. `shelfshack/dev/` → `envs/dev`, `shelfshack/prod/` → `envs/prod`).
 
 - Only run this if you're sure no other Terraform run is in progress.
 - After unlocking, re-run your pipeline or `terraform apply`.
