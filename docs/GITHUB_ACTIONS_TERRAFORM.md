@@ -1,5 +1,7 @@
 # GitHub Actions – Terraform
 
+Same workflows and behavior apply to both **dev** and **prod**; choose the environment when you run the workflow or script.
+
 ## Workflows
 
 | Workflow | Purpose |
