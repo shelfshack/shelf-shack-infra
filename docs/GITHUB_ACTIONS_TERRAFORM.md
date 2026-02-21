@@ -6,17 +6,17 @@ Same workflows and behavior apply to both **dev** and **prod**; choose the envir
 
 | Workflow | Purpose |
 |----------|--------|
-| **Terraform Apply** | Plan and apply Terraform (full or deploy-only). Handles stale state lock by unlocking and retrying once. |
+| **Terraform Apply** | **Deploy-only only.** Updates ECS, Lambda, API Gateway integrations, Amplify env vars. Never touches VPC/subnets/IGW. Use this for CI/CD. |
+| **Terraform Full Apply** | Full plan/apply. Use only when changing infra (new resources, variables). Do not use for routine deploys. |
 | **Unlock Terraform State** | One-off: release a stale state lock when a previous run was cancelled or failed. |
 
-## Terraform Apply (recommended for redeploys)
+## Terraform Apply (deploy-only – use for CI/CD)
 
 - **Trigger:** Actions → Terraform Apply → Run workflow.
-- **Inputs:**
-  - **environment:** `dev` or `prod`.
-  - **deploy_only:** `true` (default) or `false`.
+- **Input:** **environment** – `dev` or `prod`.
+- This workflow **only** runs deploy-only (no full-apply option). It never touches networking or other infra.
 
-### Deploy only (default: `true`)
+### What deploy-only updates
 
 Use this for **routine redeploys**. Only these are updated:
 
@@ -25,11 +25,11 @@ Use this for **routine redeploys**. Only these are updated:
 - **HTTP API Gateway** integration URIs (backend URL).
 - **Amplify branch** environment variables (API URLs for the frontend).
 
-No changes to VPC, RDS, OpenSearch, security groups, or other infra. This avoids accidental destroys and keeps runs short.
+No changes to VPC, RDS, OpenSearch, security groups, or other infra. This avoids accidental destroys and keeps the pipeline from failing on long-running destroys.
 
-### Full apply (`deploy_only: false`)
+### Full apply
 
-Use when you changed Terraform under `envs/*` (e.g. new resources, variables, or modules). Runs a normal `terraform plan` and `terraform apply` for that environment.
+Use **Terraform Full Apply** workflow only when you change infra (new resources, variables, modules). Do not use it for routine deploys. See **docs/PIPELINE_DEPLOY_ONLY.md** for why full apply in CI can trigger destroy and how to avoid it.
 
 ### State lock handling
 

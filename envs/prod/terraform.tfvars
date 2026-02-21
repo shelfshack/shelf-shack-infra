@@ -143,9 +143,16 @@ http_api_stage_name = "production"
 # http_api_backend_url = "https://api.yourdomain.com"
 http_api_backend_ip = null
 http_api_timeout_milliseconds = 30000
-http_api_cors_origins = ["*"]  # Update with your frontend domain for production
-http_api_cors_methods = ["*"]
-http_api_cors_headers = ["*"]
+# CORS: Use explicit origins for production so Google sign-in and credentialed requests work.
+# Wildcard "*" fails when the browser sends credentials (cookies, Authorization) from shelfshack.com.
+http_api_cors_origins = [
+  "https://shelfshack.com",
+  "https://www.shelfshack.com",
+  "http://localhost:3000",   # local dev
+  "http://localhost:5173"    # Vite dev
+]
+http_api_cors_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+http_api_cors_headers = ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"]
 http_api_cors_max_age = 300
 http_api_throttle_rate_limit = 100
 http_api_throttle_burst_limit = 50
