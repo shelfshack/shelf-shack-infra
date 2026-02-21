@@ -1,8 +1,9 @@
-# Terraform Apply with optional deploy-only (ECS + Lambda + Amplify env vars only).
-# Handles stale state lock by force-unlocking and retrying once.
+# Terraform Apply - DEPLOY ONLY (no infra destroy).
+# Only updates: ECS service/task, WebSocket Lambda, API Gateway integrations, Amplify env vars.
+# Never touches VPC, subnets, IGW, RDS, etc. Use this for CI/CD so pipelines never destroy.
 #
-# Required secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (or use OIDC)
-# Optional: TF_VAR_* for Terraform variables
+# Required secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+# Handles stale state lock by force-unlocking and retrying once.
 
 name: Terraform Apply
 
@@ -17,11 +18,6 @@ on:
         options:
           - dev
           - prod
-      deploy_only:
-        description: 'Deploy only (ECS, Lambda, Amplify env vars, API Gateway integrations) - no infra changes'
-        required: false
-        default: true
-        type: boolean
 
 concurrency:
   group: terraform-${{ inputs.environment }}
@@ -33,7 +29,7 @@ env:
 
 jobs:
   terraform:
-    name: Terraform Apply (${{ inputs.environment }})
+    name: Terraform Apply (${{ inputs.environment }}) - Deploy Only
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -59,12 +55,7 @@ jobs:
       - name: Terraform Init
         run: terraform init -reconfigure
 
-      - name: Terraform Plan (full)
-        if: inputs.deploy_only != true
-        run: terraform plan -var-file=terraform.tfvars -out=tfplan
-
       - name: Terraform Plan (deploy-only)
-        if: inputs.deploy_only == true
         run: |
           terraform plan -var-file=terraform.tfvars \
             -target=module.ecs_service \
@@ -74,12 +65,7 @@ jobs:
             -target=null_resource.amplify_env_vars[0] \
             -out=tfplan
 
-      - name: Terraform Apply (full)
-        if: inputs.deploy_only != true
-        run: bash ../../scripts/terraform-apply-with-unlock-retry.sh -auto-approve
-
       - name: Terraform Apply (deploy-only)
-        if: inputs.deploy_only == true
         run: |
           bash ../../scripts/terraform-apply-with-unlock-retry.sh -auto-approve \
             -target=module.ecs_service \
