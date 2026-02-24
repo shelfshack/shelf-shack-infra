@@ -53,6 +53,12 @@ variable "create_if_not_exists" {
   default     = true
 }
 
+variable "adopt_vpc_id" {
+  description = "If set, use this existing VPC instead of creating one. Use when adopting an existing VPC (e.g. after state loss). Leave null to always manage/create the VPC so full plan never tries to destroy it."
+  type        = string
+  default     = null
+}
+
 variable "aws_region" {
   description = "AWS region for the VPC. Required for existence check when create_if_not_exists is true."
   type        = string

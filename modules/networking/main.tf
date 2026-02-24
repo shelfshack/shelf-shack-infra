@@ -21,36 +21,13 @@ locals {
 
 data "aws_region" "current" {}
 
-# Check if VPC already exists using AWS CLI
-# This is safer than a data source because it doesn't fail if VPC doesn't exist
-data "external" "check_vpc_exists" {
-  count = var.create_if_not_exists ? 1 : 0
-  
-  program = ["bash", "-c", <<-EOT
-    VPC_INFO=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${local.vpc_name}" --region "${var.aws_region}" --query 'Vpcs[0].[VpcId,CidrBlock]' --output text 2>/dev/null)
-    if [ -n "$VPC_INFO" ] && [ "$VPC_INFO" != "None" ]; then
-      VPC_ID=$(echo "$VPC_INFO" | cut -f1)
-      VPC_CIDR=$(echo "$VPC_INFO" | cut -f2)
-      if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
-        echo "{\"exists\": \"true\", \"vpc_id\": \"$VPC_ID\", \"cidr_block\": \"$VPC_CIDR\"}"
-      else
-        echo "{\"exists\": \"false\", \"vpc_id\": \"\", \"cidr_block\": \"\"}"
-      fi
-    else
-      echo "{\"exists\": \"false\", \"vpc_id\": \"\", \"cidr_block\": \"\"}"
-    fi
-  EOT
-  ]
-}
-
-# Determine if we need to create resources or use existing
+# Determine if we need to create resources or use existing.
+# Only use "existing" when adopt_vpc_id is explicitly set (avoids full plan trying to destroy
+# when create_if_not_exists would otherwise set count=0 after finding VPC by name).
 locals {
-  vpc_exists = var.create_if_not_exists ? (
-    try(data.external.check_vpc_exists[0].result.exists, "false") == "true"
-  ) : false
-  
-  existing_vpc_id = local.vpc_exists ? try(data.external.check_vpc_exists[0].result.vpc_id, "") : ""
-  
+  vpc_exists      = var.adopt_vpc_id != null && var.adopt_vpc_id != ""
+  existing_vpc_id = local.vpc_exists ? var.adopt_vpc_id : ""
+
   should_create = !local.vpc_exists
 
   igw_exists = local.vpc_exists ? (try(data.external.check_igw_exists[0].result.exists, "false") == "true") : false
@@ -125,9 +102,6 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
 
   lifecycle {
-    # Prevent accidental destruction of VPC
-    prevent_destroy = false  # Set to true in production for extra safety
-
     # Ignore changes to tags to prevent replacement
     ignore_changes = [tags]
 
