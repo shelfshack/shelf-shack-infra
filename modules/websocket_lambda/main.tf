@@ -110,7 +110,9 @@ locals {
 # ============================================================================
 
 resource "aws_dynamodb_table" "websocket_connections" {
-  count          = local.should_create_dynamodb ? 1 : 0
+  # Always manage the DynamoDB table with Terraform (count = 1)
+  # If it exists in AWS but not in state, it should be imported, not skipped
+  count          = 1
   name           = local.dynamodb_table_name
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "booking_id"
@@ -142,12 +144,8 @@ data "aws_dynamodb_table" "existing" {
 
 # Effective values
 locals {
-  effective_table_arn = local.should_create_dynamodb ? (
-    length(aws_dynamodb_table.websocket_connections) > 0 ? aws_dynamodb_table.websocket_connections[0].arn : ""
-  ) : (
-    length(data.aws_dynamodb_table.existing) > 0 ? data.aws_dynamodb_table.existing[0].arn : local.existing_table_arn
-  )
-  
+  # Always use the managed resource
+  effective_table_arn = aws_dynamodb_table.websocket_connections[0].arn
   effective_table_name = local.dynamodb_table_name
 }
 
@@ -247,7 +245,9 @@ data "archive_file" "lambda_zip" {
 }
 
 resource "aws_lambda_function" "websocket_proxy" {
-  count            = local.should_create_lambda ? 1 : 0
+  # Always manage the Lambda function with Terraform (count = 1)
+  # If it exists in AWS but not in state, it should be imported, not skipped
+  count            = 1
   filename         = data.archive_file.lambda_zip.output_path
   function_name    = local.lambda_function_name
   role             = local.effective_role_arn
@@ -261,11 +261,14 @@ resource "aws_lambda_function" "websocket_proxy" {
     variables = merge({
       BACKEND_URL          = var.backend_url
       CONNECTIONS_TABLE    = local.effective_table_name
-        API_GATEWAY_ENDPOINT = var.api_gateway_endpoint
+      API_GATEWAY_ENDPOINT = var.api_gateway_endpoint
     }, var.additional_environment_variables)
   }
 
   tags = var.tags
+
+  # Terraform automatically updates Lambda environment variables when var.backend_url changes
+  # This ensures Lambda always has the correct backend URL when ECS task IP changes
 
   depends_on = [
     aws_iam_role.lambda_role,
@@ -276,9 +279,10 @@ resource "aws_lambda_function" "websocket_proxy" {
   ]
 }
 
-# Lambda permission (only if we created the function)
+# Lambda permission for API Gateway
 resource "aws_lambda_permission" "apigw_invoke" {
-  count         = local.should_create_lambda ? 1 : 0
+  # Always create the permission (count = 1)
+  count         = 1
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = local.lambda_function_name
@@ -293,15 +297,7 @@ resource "aws_lambda_permission" "apigw_invoke" {
 # ============================================================================
 
 locals {
-  effective_function_arn = local.should_create_lambda ? (
-    length(aws_lambda_function.websocket_proxy) > 0 ? aws_lambda_function.websocket_proxy[0].arn : ""
-  ) : (
-    try(data.external.check_lambda_function[0].result.function_arn, "")
-  )
-  
-  effective_invoke_arn = local.should_create_lambda ? (
-    length(aws_lambda_function.websocket_proxy) > 0 ? aws_lambda_function.websocket_proxy[0].invoke_arn : ""
-  ) : (
-    "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${try(data.external.check_lambda_function[0].result.function_arn, "")}/invocations"
-  )
+  # Always use the managed resources
+  effective_function_arn = aws_lambda_function.websocket_proxy[0].arn
+  effective_invoke_arn = aws_lambda_function.websocket_proxy[0].invoke_arn
 }

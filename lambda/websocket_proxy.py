@@ -112,7 +112,14 @@ def handle_connect(event, connection_id):
     token = query_params.get('token')
     connection_type = query_params.get('type', 'booking')  # booking, chat, notification, feed
     
-    logger.info(f"Connection: type={connection_type}, booking_id={booking_id}, connection_id={connection_id}")
+    # Log connection details for debugging
+    logger.info(f"Connection: type={connection_type}, booking_id={booking_id}, connection_id={connection_id}, has_token={bool(token)}, token_length={len(token) if token else 0}")
+    
+    # URL decode token if needed (API Gateway may URL-encode query params)
+    if token:
+        import urllib.parse
+        token = urllib.parse.unquote(token)
+        logger.debug(f"Token after URL decode: length={len(token)}, preview={token[:20]}...{token[-10:] if len(token) > 30 else ''}")
     
     # ⚡ SINGLE WEBSOCKET PER USER: For chat connections, booking_id is optional in URL
     # booking_id will be in message payloads for routing
@@ -137,9 +144,14 @@ def handle_connect(event, connection_id):
     
     # For notification connections, we need user_id from token
     user_id = None
+    notification_initial_payload = None
     if connection_type == 'notification' and token:
         try:
-            # Validate token and get user_id from backend
+            # Log token info for debugging (without exposing full token)
+            token_preview = f"{token[:20]}...{token[-10:]}" if len(token) > 30 else token[:20]
+            logger.info(f"Notification connect: connection_id={connection_id}, token_length={len(token)}, token_preview={token_preview}")
+            
+            # Validate token and get user_id + initial notifications from backend
             backend_response = forward_to_backend(
                 f"{BACKEND_URL}/api/notifications/ws/connect",
                 {
@@ -147,11 +159,19 @@ def handle_connect(event, connection_id):
                     'token': token
                 }
             )
-            if backend_response and backend_response.get('response'):
-                user_id = backend_response['response'].get('user_id')
-                logger.info(f"Got user_id {user_id} for notification connection {connection_id}")
+            if backend_response and backend_response.get('success') and backend_response.get('response'):
+                response_data = backend_response['response']
+                user_id = response_data.get('user_id')
+                notification_initial_payload = response_data.get('initial')
+                logger.info(f"Got user_id {user_id} for notification connection {connection_id}, has_initial={notification_initial_payload is not None}")
+            else:
+                error_msg = backend_response.get('error', 'Unknown error') if backend_response else 'No response'
+                logger.error(f"Backend notification connect failed: {error_msg}")
+                # Log more details for debugging
+                logger.error(f"Backend URL: {BACKEND_URL}/api/notifications/ws/connect")
+                logger.error(f"Token present: {bool(token)}, Token length: {len(token) if token else 0}")
         except Exception as e:
-            logger.warning(f"Failed to validate token for notification connection: {e}")
+            logger.warning(f"Failed to validate token for notification connection: {e}", exc_info=True)
             # Still accept connection - user_id will be None
     
     # Store connection in DynamoDB for broadcasting (include token for message routing)
@@ -341,31 +361,22 @@ def handle_connect(event, connection_id):
             logger.error(f"Failed to get initial status from backend: {e}", exc_info=True)
             # Still accept connection - client can request status separately if needed
     
-    # For notification connections, call backend to get initial notifications
-    if connection_type == 'notification' and user_id and token:
-        try:
-            backend_response = forward_to_backend(
-                f"{BACKEND_URL}/api/notifications/ws/connect",
-                {
-                    'connection_id': connection_id,
-                    'token': token
-                }
-            )
-            
-            # Send initial notifications to client
-            if backend_response and backend_response.get('response'):
-                response_data = backend_response['response']
-                if response_data.get('initial'):
-                    logger.info(f"Sending initial notifications to connection {connection_id}")
-                    try:
-                        send_to_client(connection_id, response_data['initial'])
-                        logger.info(f"Successfully sent initial notifications to {connection_id}")
-                    except Exception as send_error:
-                        # Connection might be closed - this is OK, frontend will use HTTP fallback
-                        logger.warning(f"Failed to send initial notifications (connection may be closed): {send_error}")
-        except Exception as e:
-            logger.warning(f"Failed to get initial notifications from backend: {e}")
-            # Still accept connection
+    # For notification connections, send initial notifications to client
+    # (We already got them from the first backend call above)
+    if connection_type == 'notification':
+        if notification_initial_payload:
+            try:
+                logger.info(f"Sending initial notifications to connection {connection_id}, payload_type={type(notification_initial_payload)}, payload_keys={list(notification_initial_payload.keys()) if isinstance(notification_initial_payload, dict) else 'not_dict'}")
+                send_to_client(connection_id, notification_initial_payload)
+                logger.info(f"Successfully sent initial notifications to {connection_id}")
+            except Exception as send_error:
+                # Connection might be closed - this is OK, frontend will use HTTP fallback
+                logger.warning(f"Failed to send initial notifications (connection may be closed): {send_error}", exc_info=True)
+        else:
+            logger.warning(f"No initial payload available for notification connection {connection_id} - frontend will use HTTP fallback")
+            # Log why we don't have the payload
+            if 'backend_response' in locals():
+                logger.warning(f"Backend response: success={backend_response.get('success') if backend_response else False}, error={backend_response.get('error') if backend_response else 'No response'}")
     
     # Accept the connection
     return {
@@ -626,6 +637,10 @@ def forward_to_backend(url, data):
     Uses urllib instead of requests (which isn't available in Lambda by default).
     """
     try:
+        # Log request details (without exposing sensitive data)
+        log_data = {k: (v[:20] + '...' if isinstance(v, str) and len(v) > 30 and k == 'token' else v) for k, v in data.items()}
+        logger.info(f"Forwarding to backend: {url}, data_keys={list(data.keys())}")
+        
         # Prepare the request
         json_data = json.dumps(data).encode('utf-8')
         req = urllib.request.Request(
@@ -643,22 +658,26 @@ def forward_to_backend(url, data):
             if status_code >= 200 and status_code < 300:
                 try:
                     parsed_response = json.loads(response_data) if response_data else {}
+                    logger.info(f"Backend response success: status={status_code}, response_keys={list(parsed_response.keys())}")
                     return {'success': True, 'response': parsed_response}
                 except json.JSONDecodeError:
+                    logger.warning(f"Backend returned non-JSON response: {response_data[:200]}")
                     return {'success': True, 'response': {}}
             else:
-                logger.error(f"Backend request failed with status {status_code}: {response_data}")
+                logger.error(f"Backend request failed with status {status_code}: {response_data[:500]}")
                 return {'success': False, 'error': f"HTTP {status_code}"}
                 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode('utf-8') if hasattr(e, 'read') else str(e)
-        logger.error(f"Backend HTTP error: {e.code} - {error_body}")
+        logger.error(f"Backend HTTP error: {e.code} - {error_body[:500]}")
+        # Log request URL and data keys for debugging
+        logger.error(f"Request URL: {url}, Data keys: {list(data.keys())}")
         return {'success': False, 'error': f"HTTP {e.code}: {error_body}"}
     except urllib.error.URLError as e:
-        logger.error(f"Backend URL error: {e}")
+        logger.error(f"Backend URL error: {e}, URL: {url}")
         return {'success': False, 'error': str(e)}
     except Exception as e:
-        logger.error(f"Backend request failed: {e}")
+        logger.error(f"Backend request failed: {e}, URL: {url}", exc_info=True)
         return {'success': False, 'error': str(e)}
 
 

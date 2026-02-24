@@ -608,13 +608,13 @@ variable "http_api_throttle_rate_limit" {
 }
 
 variable "http_api_throttle_burst_limit" {
-  description = "Throttle burst limit for HTTP API Gateway stage (concurrent requests). Should be less than or equal to rate_limit."
+  description = "Throttle burst limit for HTTP API Gateway stage (concurrent requests). Should be less than or equal to rate_limit. Validation against rate_limit is done in main.tf."
   type        = number
   default     = 50
   
   validation {
-    condition     = var.http_api_throttle_burst_limit > 0 && var.http_api_throttle_burst_limit <= var.http_api_throttle_rate_limit
-    error_message = "API Gateway throttle_burst_limit must be between 1 and throttle_rate_limit."
+    condition     = var.http_api_throttle_burst_limit > 0 && var.http_api_throttle_burst_limit <= 10000
+    error_message = "API Gateway throttle_burst_limit must be between 1 and 10,000."
   }
 }
 
@@ -623,6 +623,27 @@ variable "deploy_role_name" {
   description = "Name of the IAM role used for deployment operations (CI/CD, Terraform)"
   type        = string
   default     = "shelfshackDeployRole"
+}
+
+# Resource Protection Configuration
+# Unified variable to control all destruction protection
+# Set to true to allow destruction, false to prevent it
+variable "allow_destruction" {
+  description = "Allow destruction of resources. Set to true to enable terraform destroy, false to prevent accidental destruction. Default: false (protected)."
+  type        = bool
+  default     = false  # Default to false for safety - must explicitly set to true to destroy
+  
+  validation {
+    condition     = var.allow_destruction == true || var.allow_destruction == false
+    error_message = "allow_destruction must be either true or false."
+  }
+}
+
+# Legacy variable for backward compatibility (maps to allow_destruction)
+variable "prevent_resource_destruction" {
+  description = "DEPRECATED: Use allow_destruction instead. This is kept for backward compatibility. prevent_resource_destruction=false means allow_destruction=true."
+  type        = bool
+  default     = null  # null means use allow_destruction instead
 }
 
 # Amplify App Configuration (Environment Variables Management)

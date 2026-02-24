@@ -112,9 +112,14 @@ variable "memory" {
 }
 
 variable "desired_count" {
-  description = "Desired number of running tasks."
+  description = "Desired number of running tasks. For free tier, start with 1 task to minimize costs."
   type        = number
   default     = 2
+  
+  validation {
+    condition     = var.desired_count >= 1 && var.desired_count <= 10
+    error_message = "ECS desired_count must be between 1 and 10 for cost control."
+  }
 }
 
 variable "assign_public_ip" {
@@ -291,9 +296,14 @@ variable "db_master_password_secret_arn" {
 }
 
 variable "db_allocated_storage" {
-  description = "Allocated storage (GB)."
+  description = "Allocated storage (GB). AWS Free Tier allows up to 20 GB for RDS."
   type        = number
   default     = 20
+  
+  validation {
+    condition     = var.db_allocated_storage >= 20 && var.db_allocated_storage <= 1000
+    error_message = "RDS allocated_storage must be between 20 GB (free tier minimum) and 1000 GB."
+  }
 }
 
 variable "db_engine_version" {
@@ -309,9 +319,14 @@ variable "db_multi_az" {
 }
 
 variable "db_backup_retention_days" {
-  description = "Number of days to retain backups."
+  description = "Number of days to retain backups. AWS Free Tier allows up to 1 day. Set to 0 to disable automated backups (not recommended for production)."
   type        = number
   default     = 0
+  
+  validation {
+    condition     = var.db_backup_retention_days >= 0 && var.db_backup_retention_days <= 35
+    error_message = "RDS backup_retention_period must be between 0 and 35 days."
+  }
 }
 
 variable "db_skip_final_snapshot" {
@@ -575,15 +590,25 @@ variable "http_api_cors_allow_credentials" {
 }
 
 variable "http_api_throttle_rate_limit" {
-  description = "Throttle rate limit for HTTP API Gateway stage"
+  description = "Throttle rate limit for HTTP API Gateway stage (requests per second). Free tier allows up to 10,000 requests/second."
   type        = number
   default     = 100
+  
+  validation {
+    condition     = var.http_api_throttle_rate_limit > 0 && var.http_api_throttle_rate_limit <= 10000
+    error_message = "API Gateway throttle_rate_limit must be between 1 and 10,000 requests/second."
+  }
 }
 
 variable "http_api_throttle_burst_limit" {
-  description = "Throttle burst limit for HTTP API Gateway stage"
+  description = "Throttle burst limit for HTTP API Gateway stage (concurrent requests). Should be less than or equal to rate_limit. Validation against rate_limit is done in main.tf."
   type        = number
   default     = 50
+  
+  validation {
+    condition     = var.http_api_throttle_burst_limit > 0 && var.http_api_throttle_burst_limit <= 10000
+    error_message = "API Gateway throttle_burst_limit must be between 1 and 10,000."
+  }
 }
 
 # Deploy Role Configuration
@@ -591,6 +616,22 @@ variable "deploy_role_name" {
   description = "Name of the IAM role used for deployment operations (CI/CD, Terraform)"
   type        = string
   default     = "shelfshackDeployRole"
+}
+
+# Resource Protection Configuration
+# Unified variable to control all destruction protection
+# Set to true to allow destruction, false to prevent it
+variable "allow_destruction" {
+  description = "Allow destruction of resources. Set to true to enable terraform destroy, false to prevent accidental destruction. Default: false (protected)."
+  type        = bool
+  default     = false  # Default to false for safety - must explicitly set to true to destroy
+}
+
+# Legacy variable for backward compatibility (maps to allow_destruction)
+variable "prevent_resource_destruction" {
+  description = "DEPRECATED: Use allow_destruction instead. This is kept for backward compatibility. prevent_resource_destruction=false means allow_destruction=true."
+  type        = bool
+  default     = null  # null means use allow_destruction instead
 }
 
 # Amplify App Configuration (Environment Variables Management)
