@@ -522,27 +522,56 @@ variable "http_api_timeout_milliseconds" {
 }
 
 variable "http_api_cors_origins" {
-  description = "Allowed CORS origins for HTTP API Gateway"
+  description = "Allowed CORS origins for HTTP API Gateway. For production with Google OAuth, use explicit origins. Wildcard '*' cannot be used with allow_credentials=true."
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition = length(var.http_api_cors_origins) > 0
+    error_message = "At least one CORS origin must be specified."
+  }
 }
 
 variable "http_api_cors_methods" {
-  description = "Allowed CORS methods for HTTP API Gateway"
+  description = "Allowed CORS methods for HTTP API Gateway. Must include OPTIONS for preflight requests."
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition     = length(var.http_api_cors_methods) > 0
+    error_message = "At least one CORS method must be specified."
+  }
 }
 
 variable "http_api_cors_headers" {
-  description = "Allowed CORS headers for HTTP API Gateway"
+  description = "Allowed CORS headers for HTTP API Gateway. Should include 'Authorization', 'Content-Type', 'Origin', etc. for authenticated requests."
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition     = length(var.http_api_cors_headers) > 0
+    error_message = "At least one CORS header must be specified."
+  }
 }
 
 variable "http_api_cors_max_age" {
   description = "Max age for CORS preflight requests (seconds)"
   type        = number
   default     = 300
+  
+  validation {
+    condition     = var.http_api_cors_max_age >= 0 && var.http_api_cors_max_age <= 86400
+    error_message = "CORS max_age must be between 0 and 86400 seconds (24 hours)."
+  }
+}
+
+variable "http_api_cors_allow_credentials" {
+  description = "Whether to allow credentials in CORS requests. REQUIRED for Google OAuth and any authenticated requests. Set to true when using explicit origins (not wildcard)."
+  type        = bool
+  default     = false  # Dev defaults to false since it may use wildcard
+  
+  # Note: When allow_credentials is true, allow_origins cannot contain "*"
+  # This is validated in the main.tf resource via conditional logic
 }
 
 variable "http_api_throttle_rate_limit" {

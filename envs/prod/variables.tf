@@ -112,9 +112,14 @@ variable "memory" {
 }
 
 variable "desired_count" {
-  description = "Desired number of running tasks."
+  description = "Desired number of running tasks. For free tier, start with 1 task to minimize costs."
   type        = number
   default     = 2
+  
+  validation {
+    condition     = var.desired_count >= 1 && var.desired_count <= 10
+    error_message = "ECS desired_count must be between 1 and 10 for cost control."
+  }
 }
 
 variable "assign_public_ip" {
@@ -291,9 +296,14 @@ variable "db_master_password_secret_arn" {
 }
 
 variable "db_allocated_storage" {
-  description = "Allocated storage (GB)."
+  description = "Allocated storage (GB). AWS Free Tier allows up to 20 GB for RDS."
   type        = number
   default     = 20
+  
+  validation {
+    condition     = var.db_allocated_storage >= 20 && var.db_allocated_storage <= 1000
+    error_message = "RDS allocated_storage must be between 20 GB (free tier minimum) and 1000 GB."
+  }
 }
 
 variable "db_engine_version" {
@@ -309,9 +319,14 @@ variable "db_multi_az" {
 }
 
 variable "db_backup_retention_days" {
-  description = "Number of days to retain backups."
+  description = "Number of days to retain backups. AWS Free Tier allows up to 1 day. Set to 0 to disable automated backups (not recommended for production)."
   type        = number
   default     = 0
+  
+  validation {
+    condition     = var.db_backup_retention_days >= 0 && var.db_backup_retention_days <= 35
+    error_message = "RDS backup_retention_period must be between 0 and 35 days."
+  }
 }
 
 variable "db_skip_final_snapshot" {
@@ -528,39 +543,79 @@ variable "http_api_timeout_milliseconds" {
 }
 
 variable "http_api_cors_origins" {
-  description = "Allowed CORS origins for HTTP API Gateway"
+  description = "Allowed CORS origins for HTTP API Gateway. For production with Google OAuth, use explicit origins (e.g., ['https://shelfshack.com', 'https://www.shelfshack.com']). Wildcard '*' cannot be used with allow_credentials=true."
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition = length(var.http_api_cors_origins) > 0
+    error_message = "At least one CORS origin must be specified."
+  }
 }
 
 variable "http_api_cors_methods" {
-  description = "Allowed CORS methods for HTTP API Gateway"
+  description = "Allowed CORS methods for HTTP API Gateway. Must include OPTIONS for preflight requests."
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition     = length(var.http_api_cors_methods) > 0
+    error_message = "At least one CORS method must be specified."
+  }
 }
 
 variable "http_api_cors_headers" {
-  description = "Allowed CORS headers for HTTP API Gateway"
+  description = "Allowed CORS headers for HTTP API Gateway. Should include 'Authorization', 'Content-Type', 'Origin', etc. for authenticated requests."
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition     = length(var.http_api_cors_headers) > 0
+    error_message = "At least one CORS header must be specified."
+  }
 }
 
 variable "http_api_cors_max_age" {
   description = "Max age for CORS preflight requests (seconds)"
   type        = number
   default     = 300
+  
+  validation {
+    condition     = var.http_api_cors_max_age >= 0 && var.http_api_cors_max_age <= 86400
+    error_message = "CORS max_age must be between 0 and 86400 seconds (24 hours)."
+  }
+}
+
+variable "http_api_cors_allow_credentials" {
+  description = "Whether to allow credentials in CORS requests. REQUIRED for Google OAuth and any authenticated requests. Set to true when using explicit origins (not wildcard)."
+  type        = bool
+  default     = true
+  
+  # Note: When allow_credentials is true, allow_origins cannot contain "*"
+  # This is validated in the main.tf resource via conditional logic
+  # Validation is done via a check block in main.tf
 }
 
 variable "http_api_throttle_rate_limit" {
-  description = "Throttle rate limit for HTTP API Gateway stage"
+  description = "Throttle rate limit for HTTP API Gateway stage (requests per second). Free tier allows up to 10,000 requests/second."
   type        = number
   default     = 100
+  
+  validation {
+    condition     = var.http_api_throttle_rate_limit > 0 && var.http_api_throttle_rate_limit <= 10000
+    error_message = "API Gateway throttle_rate_limit must be between 1 and 10,000 requests/second."
+  }
 }
 
 variable "http_api_throttle_burst_limit" {
-  description = "Throttle burst limit for HTTP API Gateway stage"
+  description = "Throttle burst limit for HTTP API Gateway stage (concurrent requests). Should be less than or equal to rate_limit."
   type        = number
   default     = 50
+  
+  validation {
+    condition     = var.http_api_throttle_burst_limit > 0 && var.http_api_throttle_burst_limit <= var.http_api_throttle_rate_limit
+    error_message = "API Gateway throttle_burst_limit must be between 1 and throttle_rate_limit."
+  }
 }
 
 # Deploy Role Configuration

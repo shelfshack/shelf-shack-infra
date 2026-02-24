@@ -145,6 +145,7 @@ http_api_backend_ip = null
 http_api_timeout_milliseconds = 30000
 # CORS: Use explicit origins for production so Google sign-in and credentialed requests work.
 # Wildcard "*" fails when the browser sends credentials (cookies, Authorization) from shelfshack.com.
+# CRITICAL: allow_credentials must be true for Google OAuth and authenticated requests to work.
 http_api_cors_origins = [
   "https://shelfshack.com",
   "https://www.shelfshack.com",
@@ -152,7 +153,8 @@ http_api_cors_origins = [
   "http://localhost:5173"    # Vite dev
 ]
 http_api_cors_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
-http_api_cors_headers = ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"]
+http_api_cors_headers = ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-Requested-Id"]
+http_api_cors_allow_credentials = true  # REQUIRED for Google OAuth - allows cookies and Authorization headers
 http_api_cors_max_age = 300
 http_api_throttle_rate_limit = 100
 http_api_throttle_burst_limit = 50

@@ -25,16 +25,20 @@ data "aws_secretsmanager_secret_version" "db_password" {
 
 # External data source to get ECS task public IP (using AWS CLI)
 # This data source runs during terraform plan/apply and fetches the CURRENT running task's IP
-# It waits up to 5 minutes for the task to be ready with a public IP assigned
+# It waits up to 10 minutes for the task to be ready with a public IP assigned
+# Improved error handling and retry logic for better reliability
 data "external" "ecs_task_public_ip" {
   count = !var.enable_load_balancer ? 1 : 0
   program = ["bash", "-c", <<-EOT
+    set -euo pipefail  # Exit on error, undefined vars, pipe failures
+    
     CLUSTER="${module.ecs_service.cluster_name}"
     SERVICE="${module.ecs_service.service_name}"
     TASK_DEF_ARN="${module.ecs_service.task_definition_arn}"
     
-    # Retry configuration: wait up to 5 minutes for task to be ready with public IP
-    MAX_RETRIES=60
+    # Retry configuration: wait up to 10 minutes for task to be ready with public IP
+    # Increased from 5 minutes for better reliability during deployments
+    MAX_RETRIES=120
     RETRY_DELAY=5
     RETRY_COUNT=0
     
@@ -54,8 +58,13 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No running tasks found after waiting"}'
-          exit 0
+          echo "ERROR: No running tasks found for service $SERVICE in cluster $CLUSTER after $MAX_RETRIES attempts" >&2
+          echo "This may indicate:" >&2
+          echo "  1. ECS service is not running or has no tasks" >&2
+          echo "  2. Tasks are failing to start (check ECS service events)" >&2
+          echo "  3. Network connectivity issues" >&2
+          echo '{"public_ip":"","error":"No running tasks found after waiting","cluster":"'$CLUSTER'","service":"'$SERVICE'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -107,8 +116,10 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No task found matching current task definition after waiting"}'
-          exit 0
+          echo "ERROR: No task found matching task definition $TASK_DEF_ARN after $MAX_RETRIES attempts" >&2
+          echo "This may indicate a deployment is in progress or tasks are using an older task definition." >&2
+          echo '{"public_ip":"","error":"No task found matching current task definition after waiting","task_def_arn":"'$TASK_DEF_ARN'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -126,8 +137,10 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No ENI found for task after waiting"}'
-          exit 0
+          echo "ERROR: No ENI found for task $NEWEST_TASK_ARN after $MAX_RETRIES attempts" >&2
+          echo "This may indicate the task is still initializing or network attachment failed." >&2
+          echo '{"public_ip":"","error":"No ENI found for task after waiting","task_arn":"'$NEWEST_TASK_ARN'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -144,8 +157,13 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No public IP found for ENI after waiting"}'
-          exit 0
+          echo "ERROR: No public IP found for ENI $ENI_ID after $MAX_RETRIES attempts" >&2
+          echo "This may indicate:" >&2
+          echo "  1. Task is in a private subnet without NAT Gateway" >&2
+          echo "  2. Public IP assignment is delayed" >&2
+          echo "  3. Network interface configuration issue" >&2
+          echo '{"public_ip":"","error":"No public IP found for ENI after waiting","eni_id":"'$ENI_ID'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -155,8 +173,13 @@ data "external" "ecs_task_public_ip" {
     done
     
     # If we get here, we've exhausted all retries
-    echo '{"public_ip":"","error":"Failed to get public IP after maximum retries"}'
-    exit 0
+    echo "ERROR: Failed to get public IP after $MAX_RETRIES attempts ($((MAX_RETRIES * RETRY_DELAY / 60)) minutes)" >&2
+    echo "Please check:" >&2
+    echo "  1. ECS service status: aws ecs describe-services --cluster $CLUSTER --services $SERVICE" >&2
+    echo "  2. Task status: aws ecs list-tasks --cluster $CLUSTER --service-name $SERVICE" >&2
+    echo "  3. CloudWatch logs for the ECS service" >&2
+    echo '{"public_ip":"","error":"Failed to get public IP after maximum retries","cluster":"'$CLUSTER'","service":"'$SERVICE'"}'
+    exit 1  # Exit with error to fail Terraform apply
   EOT
   ]
   
@@ -340,6 +363,22 @@ module "rds" {
   # Resilience: Check if resources exist before creating
   create_if_not_exists = true
   aws_region           = var.aws_region
+}
+
+# Lifecycle rule to prevent accidental RDS deletion
+resource "null_resource" "rds_protection_warning" {
+  count = var.db_deletion_protection ? 0 : 1
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "WARNING: RDS deletion_protection is set to false. " \
+           "Consider enabling it in production to prevent accidental deletion." >&2
+    EOT
+  }
+  
+  triggers = {
+    deletion_protection = var.db_deletion_protection
+  }
 }
 
 resource "aws_security_group_rule" "rds_from_ecs" {
@@ -696,6 +735,15 @@ resource "aws_apigatewayv2_integration" "websocket" {
 # HTTP API Gateway that proxies requests to the ECS service
 # This replaces the manually created API Gateway: shelfshack-backend-prod
 
+# Validation: Ensure wildcard is not used with allow_credentials
+locals {
+  cors_has_wildcard = contains(var.http_api_cors_origins, "*")
+  cors_validation_error = var.http_api_cors_allow_credentials && local.cors_has_wildcard ? (
+    "ERROR: Cannot use wildcard '*' in http_api_cors_origins when http_api_cors_allow_credentials is true. " +
+    "For Google OAuth and authenticated requests, you must specify explicit origins (e.g., ['https://shelfshack.com', 'https://www.shelfshack.com'])."
+  ) : null
+}
+
 # HTTP API Gateway
 resource "aws_apigatewayv2_api" "backend" {
   name          = "${local.name}-backend"
@@ -703,13 +751,37 @@ resource "aws_apigatewayv2_api" "backend" {
   description   = "HTTP API Gateway for backend API proxy to ECS service"
   
   cors_configuration {
-    allow_origins = var.http_api_cors_origins
-    allow_methods = var.http_api_cors_methods
-    allow_headers = var.http_api_cors_headers
-    max_age       = var.http_api_cors_max_age
+    allow_origins     = var.http_api_cors_origins
+    allow_methods     = var.http_api_cors_methods
+    allow_headers     = var.http_api_cors_headers
+    allow_credentials = var.http_api_cors_allow_credentials
+    max_age           = var.http_api_cors_max_age
   }
   
   tags = local.tags
+  
+  lifecycle {
+    create_before_destroy = true
+    # Prevent accidental deletion of API Gateway
+    prevent_destroy = false  # Set to true in production if you want extra protection
+  }
+}
+
+# Fail fast if CORS configuration is invalid
+resource "null_resource" "cors_validation" {
+  count = local.cors_validation_error != null ? 1 : 0
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "${local.cors_validation_error}" >&2
+      exit 1
+    EOT
+  }
+  
+  triggers = {
+    cors_origins = join(",", var.http_api_cors_origins)
+    allow_credentials = var.http_api_cors_allow_credentials
+  }
 }
 
 # HTTP API Gateway Stage
@@ -724,6 +796,16 @@ resource "aws_apigatewayv2_stage" "backend" {
   }
 
   tags = local.tags
+  
+  depends_on = [
+    aws_apigatewayv2_api.backend,
+    null_resource.cors_validation
+  ]
+  
+  lifecycle {
+    # Ensure stage is updated when API changes
+    ignore_changes = []
+  }
 }
 
 # HTTP API Gateway Integration (HTTP proxy to ECS service with {proxy} path)

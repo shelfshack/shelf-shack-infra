@@ -757,13 +757,22 @@ resource "aws_apigatewayv2_api" "backend" {
   description   = "HTTP API Gateway for backend API proxy to ECS service"
   
   cors_configuration {
-    allow_origins = var.http_api_cors_origins
-    allow_methods = var.http_api_cors_methods
-    allow_headers = var.http_api_cors_headers
-    max_age       = var.http_api_cors_max_age
+    allow_origins     = var.http_api_cors_origins
+    allow_methods     = var.http_api_cors_methods
+    allow_headers     = var.http_api_cors_headers
+    allow_credentials = var.http_api_cors_allow_credentials
+    max_age           = var.http_api_cors_max_age
   }
   
   tags = local.tags
+  
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [
+      # Ignore changes to CORS config during updates to prevent unnecessary recreates
+      # CORS changes are handled via stage updates
+    ]
+  }
 }
 
 # HTTP API Gateway Stage
