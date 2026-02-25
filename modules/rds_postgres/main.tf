@@ -96,7 +96,9 @@ locals {
 # ============================================================================
 
 resource "aws_db_subnet_group" "this" {
-  count      = local.should_create_subnet_group ? 1 : 0
+  # Always manage the subnet group with Terraform (count = 1)
+  # If it exists in AWS but not in state, it should be imported, not skipped
+  count      = 1
   name       = local.subnet_group_name
   subnet_ids = var.subnet_ids
 
@@ -106,6 +108,8 @@ resource "aws_db_subnet_group" "this" {
 
   lifecycle {
     create_before_destroy = true
+    # Note: During destroy, Terraform will destroy the RDS instance first (since it depends on this),
+    # then destroy this subnet group. No explicit depends_on needed to avoid cycles.
   }
 }
 
@@ -134,7 +138,9 @@ locals {
 }
 
 resource "aws_db_instance" "this" {
-  count                   = local.should_create_db_instance ? 1 : 0
+  # Always manage the DB instance with Terraform (count = 1)
+  # If it exists in AWS but not in state, it should be imported, not skipped
+  count                   = 1
   identifier              = local.db_identifier
   engine                  = "postgres"
   engine_version          = var.engine_version
@@ -143,7 +149,7 @@ resource "aws_db_instance" "this" {
   db_name                 = var.db_name
   username                = var.master_username
   password                = var.master_password
-  db_subnet_group_name    = local.should_create_subnet_group ? aws_db_subnet_group.this[0].name : local.subnet_group_name
+  db_subnet_group_name    = aws_db_subnet_group.this[0].name
   vpc_security_group_ids  = [local.effective_security_group_id]
   multi_az                = var.multi_az
   publicly_accessible     = var.publicly_accessible
@@ -161,29 +167,37 @@ resource "aws_db_instance" "this" {
   tags = merge(local.tags, {
     Name = local.db_identifier
   })
+  
+  lifecycle {
+    # Note: prevent_destroy is not used here because it can't use variables
+    # Destruction protection is handled via deletion_protection (AWS-level) and the allow_destruction variable
+    
+    # Ignore changes to fields that shouldn't trigger recreation
+    # - Tags: Allow tag updates without recreation
+    # - Allocated storage: Allow storage increases without recreation (decreases still require manual intervention)
+    # - Password: Changes should update in-place, not recreate
+    # - Backup window/maintenance window: Changes should update in-place
+    ignore_changes = [
+      tags,
+      tags["ManagedBy"],
+      # Note: allocated_storage increases are allowed, but decreases require manual intervention
+      # We don't ignore allocated_storage here to allow Terraform to detect and handle increases
+      # Password changes are handled via apply_immediately
+    ]
+    
+    # Use create_before_destroy for safer updates (though RDS doesn't support this directly)
+    # RDS modifications happen in-place, so this is mainly for documentation
+    create_before_destroy = false
+  }
 }
 
 # ============================================================================
-# OUTPUT LOCALS (normalize created vs existing)
+# OUTPUT LOCALS
 # ============================================================================
 
 locals {
-  # Endpoint - use created or existing
-  db_endpoint = local.should_create_db_instance ? (
-    length(aws_db_instance.this) > 0 ? aws_db_instance.this[0].endpoint : ""
-  ) : (
-    try(data.external.check_db_instance[0].result.endpoint, "")
-  )
-  
-  db_port = local.should_create_db_instance ? (
-    length(aws_db_instance.this) > 0 ? aws_db_instance.this[0].port : 5432
-  ) : (
-    try(tonumber(data.external.check_db_instance[0].result.port), 5432)
-  )
-  
-  db_address = local.should_create_db_instance ? (
-    length(aws_db_instance.this) > 0 ? aws_db_instance.this[0].address : ""
-  ) : (
-    try(data.external.check_db_instance[0].result.endpoint, "")
-  )
+  # Endpoint - always use the managed resource
+  db_endpoint = aws_db_instance.this[0].endpoint
+  db_port     = aws_db_instance.this[0].port
+  db_address  = aws_db_instance.this[0].address
 }

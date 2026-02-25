@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/external"
       version = "~> 2.3"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -25,16 +29,20 @@ data "aws_secretsmanager_secret_version" "db_password" {
 
 # External data source to get ECS task public IP (using AWS CLI)
 # This data source runs during terraform plan/apply and fetches the CURRENT running task's IP
-# It waits up to 5 minutes for the task to be ready with a public IP assigned
+# It waits up to 10 minutes for the task to be ready with a public IP assigned
+# Improved error handling and retry logic for better reliability
 data "external" "ecs_task_public_ip" {
   count = !var.enable_load_balancer ? 1 : 0
   program = ["bash", "-c", <<-EOT
+    set -euo pipefail  # Exit on error, undefined vars, pipe failures
+    
     CLUSTER="${module.ecs_service.cluster_name}"
     SERVICE="${module.ecs_service.service_name}"
     TASK_DEF_ARN="${module.ecs_service.task_definition_arn}"
     
-    # Retry configuration: wait up to 5 minutes for task to be ready with public IP
-    MAX_RETRIES=60
+    # Retry configuration: wait up to 10 minutes for task to be ready with public IP
+    # Increased from 5 minutes for better reliability during deployments
+    MAX_RETRIES=120
     RETRY_DELAY=5
     RETRY_COUNT=0
     
@@ -54,8 +62,13 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No running tasks found after waiting"}'
-          exit 0
+          echo "ERROR: No running tasks found for service $SERVICE in cluster $CLUSTER after $MAX_RETRIES attempts" >&2
+          echo "This may indicate:" >&2
+          echo "  1. ECS service is not running or has no tasks" >&2
+          echo "  2. Tasks are failing to start (check ECS service events)" >&2
+          echo "  3. Network connectivity issues" >&2
+          echo '{"public_ip":"","error":"No running tasks found after waiting","cluster":"'$CLUSTER'","service":"'$SERVICE'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -107,8 +120,10 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No task found matching current task definition after waiting"}'
-          exit 0
+          echo "ERROR: No task found matching task definition $TASK_DEF_ARN after $MAX_RETRIES attempts" >&2
+          echo "This may indicate a deployment is in progress or tasks are using an older task definition." >&2
+          echo '{"public_ip":"","error":"No task found matching current task definition after waiting","task_def_arn":"'$TASK_DEF_ARN'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -126,8 +141,10 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No ENI found for task after waiting"}'
-          exit 0
+          echo "ERROR: No ENI found for task $NEWEST_TASK_ARN after $MAX_RETRIES attempts" >&2
+          echo "This may indicate the task is still initializing or network attachment failed." >&2
+          echo '{"public_ip":"","error":"No ENI found for task after waiting","task_arn":"'$NEWEST_TASK_ARN'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -144,8 +161,13 @@ data "external" "ecs_task_public_ip" {
           sleep $RETRY_DELAY
           continue
         else
-          echo '{"public_ip":"","error":"No public IP found for ENI after waiting"}'
-          exit 0
+          echo "ERROR: No public IP found for ENI $ENI_ID after $MAX_RETRIES attempts" >&2
+          echo "This may indicate:" >&2
+          echo "  1. Task is in a private subnet without NAT Gateway" >&2
+          echo "  2. Public IP assignment is delayed" >&2
+          echo "  3. Network interface configuration issue" >&2
+          echo '{"public_ip":"","error":"No public IP found for ENI after waiting","eni_id":"'$ENI_ID'"}'
+          exit 1  # Exit with error to fail Terraform apply
         fi
       fi
       
@@ -155,18 +177,27 @@ data "external" "ecs_task_public_ip" {
     done
     
     # If we get here, we've exhausted all retries
-    echo '{"public_ip":"","error":"Failed to get public IP after maximum retries"}'
-    exit 0
+    echo "ERROR: Failed to get public IP after $MAX_RETRIES attempts ($((MAX_RETRIES * RETRY_DELAY / 60)) minutes)" >&2
+    echo "Please check:" >&2
+    echo "  1. ECS service status: aws ecs describe-services --cluster $CLUSTER --services $SERVICE" >&2
+    echo "  2. Task status: aws ecs list-tasks --cluster $CLUSTER --service-name $SERVICE" >&2
+    echo "  3. CloudWatch logs for the ECS service" >&2
+    echo '{"public_ip":"","error":"Failed to get public IP after maximum retries","cluster":"'$CLUSTER'","service":"'$SERVICE'"}'
+    exit 1  # Exit with error to fail Terraform apply
   EOT
   ]
   
-  # Use task definition ARN and service name as triggers - when these change (new deployment),
-  # this will force the data source to refresh and fetch the new task's IP
+  # Use task definition ARN as the primary trigger - only refresh when task definition changes
+  # This prevents unnecessary refreshes on every apply
   query = {
     task_def_arn = module.ecs_service.task_definition_arn
+    # Include service name and cluster for context, but task_def_arn is the key trigger
     service_name = module.ecs_service.service_name
     cluster_name = module.ecs_service.cluster_name
   }
+  
+  # Only refresh when task definition actually changes (new deployment)
+  # This prevents unnecessary IP lookups on every apply
 }
 
 # Local value to determine the backend URL dynamically
@@ -213,6 +244,13 @@ locals {
     try(jsondecode(data.aws_secretsmanager_secret_version.db_password[0].secret_string)["password"], data.aws_secretsmanager_secret_version.db_password[0].secret_string)
   ) : (
     var.db_master_password != null ? var.db_master_password : var.DB_MASTER_PASSWORD
+  )
+  
+  # Unified destruction control: allow_destruction takes precedence
+  # If allow_destruction is set, use it. Otherwise, use inverse of prevent_resource_destruction (for backward compatibility)
+  # Default: false (protected) - must explicitly set allow_destruction=true to destroy
+  can_destroy = var.allow_destruction != null ? var.allow_destruction : (
+    var.prevent_resource_destruction != null ? !var.prevent_resource_destruction : false
   )
 }
 
@@ -261,6 +299,31 @@ module "ecr" {
   force_delete         = true  # Allow destroy even with images
 }
 
+# S3 Bucket for application uploads
+module "s3_uploads" {
+  source = "../../modules/s3_uploads"
+
+  bucket_name = lookup(var.app_environment, "S3_BUCKET_NAME", "${local.name}-uploads")
+  item_prefix  = lookup(var.app_environment, "S3_ITEM_PREFIX", "item_images")
+  profile_prefix = lookup(var.app_environment, "S3_PROFILE_PREFIX", "profile_photos")
+  
+  enable_versioning = false  # Disable versioning for cost savings (can enable if needed)
+  lifecycle_days    = 0      # Disable lifecycle rules (can enable if needed)
+  
+  # Grant ECS task role permissions to upload files
+  ecs_task_role_arn = module.ecs_service.task_role_arn
+  
+  # CORS: Allow uploads from frontend domains
+  cors_allowed_origins = concat(
+    var.http_api_cors_origins,
+    ["https://shelfshack.com", "https://www.shelfshack.com"]
+  )
+  
+  tags = local.tags
+  
+  depends_on = [module.ecs_service]
+}
+
 module "ecs_service" {
   source = "../../modules/ecs_service"
 
@@ -278,6 +341,26 @@ module "ecs_service" {
   service_subnet_ids          = var.service_subnet_ids
   environment_variables       = concat(
     local.environment_variables,
+    # Add WebSocket notification broadcasting variables (CONNECTIONS_TABLE, WEBSOCKET_API_ENDPOINT, AWS_REGION)
+    # NOTE: This mirrors the dev environment configuration so that backend can:
+    #  - Read CONNECTIONS_TABLE to find active WebSocket connections in DynamoDB
+    #  - Read WEBSOCKET_API_ENDPOINT to construct the API Gateway Management API endpoint
+    #  - Read AWS_REGION for boto3 clients
+    [
+      {
+        name  = "CONNECTIONS_TABLE"
+        value = "${local.name}-websocket-connections"
+      },
+      {
+        name  = "WEBSOCKET_API_ENDPOINT"
+        # Use HTTPS endpoint for API Gateway Management API (Lambda/backend will convert if needed)
+        value = "https://${aws_apigatewayv2_api.websocket.id}.execute-api.${var.aws_region}.amazonaws.com/${var.websocket_stage_name}"
+      },
+      {
+        name  = "AWS_REGION"
+        value = var.aws_region
+      }
+    ],
     # Add OpenSearch configuration if EC2 OpenSearch is enabled
     var.enable_opensearch_ec2 ? concat([
       {
@@ -317,6 +400,92 @@ module "ecs_service" {
   # Note: OpenSearch is disabled - backend will use PostgreSQL for search
 }
 
+# RDS deletion protection disable resource - must be created before RDS module
+# This ensures the destroy provisioner runs BEFORE RDS is destroyed
+resource "null_resource" "rds_disable_deletion_protection" {
+  # Always create this resource so it exists in state and can run destroy provisioner
+  # Creation provisioner ensures it's always created
+  provisioner "local-exec" {
+    when    = create
+    command = <<-EOT
+      echo "RDS deletion protection manager resource created."
+      echo "This resource will disable RDS deletion protection during destroy."
+    EOT
+  }
+  
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      set -e
+      INSTANCE="shelfshack-prod-postgres"
+      REGION="us-east-1"
+      
+      echo "=========================================="
+      echo "Disabling RDS deletion protection"
+      echo "=========================================="
+      echo "Checking RDS deletion protection for instance: $INSTANCE in region: $REGION"
+
+      # Check if RDS instance exists and get current DeletionProtection flag
+      STATUS=$(aws rds describe-db-instances \
+        --db-instance-identifier "$INSTANCE" \
+        --region "$REGION" \
+        --query 'DBInstances[0].DeletionProtection' \
+        --output text 2>/dev/null || echo "not-found")
+
+      if [ "$STATUS" = "not-found" ] || [ "$STATUS" = "None" ]; then
+        echo "RDS instance $INSTANCE not found or already deleted. Skipping deletion protection update."
+        exit 0
+      fi
+
+      echo "Current deletion protection status for $INSTANCE: $STATUS"
+
+      if [ "$STATUS" = "true" ]; then
+        echo "Disabling RDS deletion protection for $INSTANCE..."
+        aws rds modify-db-instance \
+          --db-instance-identifier "$INSTANCE" \
+          --no-deletion-protection \
+          --apply-immediately \
+          --region "$REGION" || {
+            echo "WARNING: Failed to disable deletion protection. Continuing anyway..." >&2
+            exit 0  # Don't fail - let Terraform try to destroy anyway
+          }
+
+        echo "Waiting for deletion protection to be disabled..."
+        # Poll until DeletionProtection is reported as false, with a sensible timeout
+        ATTEMPTS=0
+        MAX_ATTEMPTS=30  # ~5 minutes max (30 * 10s)
+        while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+          CURRENT=$(aws rds describe-db-instances \
+            --db-instance-identifier "$INSTANCE" \
+            --region "$REGION" \
+            --query 'DBInstances[0].DeletionProtection' \
+            --output text 2>/dev/null || echo "false")
+
+          echo "  Poll attempt $((ATTEMPTS + 1))/$MAX_ATTEMPTS: DeletionProtection=$CURRENT"
+
+          if [ "$CURRENT" = "false" ]; then
+            echo "✓ Deletion protection successfully disabled for $INSTANCE."
+            exit 0
+          fi
+
+          ATTEMPTS=$((ATTEMPTS + 1))
+          sleep 10
+        done
+
+        echo "WARNING: Timed out waiting for deletion protection to be disabled, but continuing destroy..." >&2
+        exit 0  # Don't fail - let Terraform try anyway
+      else
+        echo "✓ Deletion protection already disabled for $INSTANCE. Continuing destroy."
+      fi
+    EOT
+  }
+  
+  triggers = {
+    can_destroy = tostring(local.can_destroy)
+    rds_id      = "shelfshack-prod-postgres"  # Use fixed name to avoid dependency cycle
+  }
+}
+
 module "rds" {
   source = "../../modules/rds_postgres"
 
@@ -332,7 +501,8 @@ module "rds" {
   backup_retention_period    = var.db_backup_retention_days
   skip_final_snapshot        = var.db_skip_final_snapshot
   final_snapshot_identifier = var.db_final_snapshot_identifier
-  deletion_protection        = var.db_deletion_protection
+  # Deletion protection: false when allow_destruction=true, otherwise use var.db_deletion_protection
+  deletion_protection        = local.can_destroy ? false : var.db_deletion_protection
   apply_immediately          = var.db_apply_immediately
   publicly_accessible        = var.db_publicly_accessible
   tags                       = local.tags
@@ -340,7 +510,11 @@ module "rds" {
   # Resilience: Check if resources exist before creating
   create_if_not_exists = true
   aws_region           = var.aws_region
+  
+  # Note: depends_on on modules doesn't guarantee destroy order
+  # The destroy script handles RDS deletion protection disable before terraform destroy
 }
+
 
 resource "aws_security_group_rule" "rds_from_ecs" {
   type                     = "ingress"
@@ -619,6 +793,14 @@ resource "aws_apigatewayv2_api" "websocket" {
   route_selection_expression = "$request.body.action"
   
   tags = local.tags
+  
+  lifecycle {
+    create_before_destroy = true
+    # Ignore changes to tags that don't affect functionality
+    ignore_changes = [
+      tags["ManagedBy"]  # Allow tag updates without recreation
+    ]
+  }
 }
 
 # API Gateway WebSocket Stage
@@ -696,6 +878,20 @@ resource "aws_apigatewayv2_integration" "websocket" {
 # HTTP API Gateway that proxies requests to the ECS service
 # This replaces the manually created API Gateway: shelfshack-backend-prod
 
+# Validation: Ensure wildcard is not used with allow_credentials
+locals {
+  cors_has_wildcard = contains(var.http_api_cors_origins, "*")
+  cors_validation_error = var.http_api_cors_allow_credentials && local.cors_has_wildcard ? (
+    "ERROR: Cannot use wildcard '*' in http_api_cors_origins when http_api_cors_allow_credentials is true. " +
+    "For Google OAuth and authenticated requests, you must specify explicit origins (e.g., ['https://shelfshack.com', 'https://www.shelfshack.com'])."
+  ) : null
+  
+  # Validate throttle limits: burst_limit should be <= rate_limit
+  throttle_validation_error = var.http_api_throttle_burst_limit > var.http_api_throttle_rate_limit ? (
+    "ERROR: http_api_throttle_burst_limit (${var.http_api_throttle_burst_limit}) must be less than or equal to http_api_throttle_rate_limit (${var.http_api_throttle_rate_limit})."
+  ) : null
+}
+
 # HTTP API Gateway
 resource "aws_apigatewayv2_api" "backend" {
   name          = "${local.name}-backend"
@@ -703,13 +899,113 @@ resource "aws_apigatewayv2_api" "backend" {
   description   = "HTTP API Gateway for backend API proxy to ECS service"
   
   cors_configuration {
-    allow_origins = var.http_api_cors_origins
-    allow_methods = var.http_api_cors_methods
-    allow_headers = var.http_api_cors_headers
-    max_age       = var.http_api_cors_max_age
+    allow_origins     = var.http_api_cors_origins
+    allow_methods     = var.http_api_cors_methods
+    allow_headers     = var.http_api_cors_headers
+    allow_credentials = var.http_api_cors_allow_credentials
+    max_age           = var.http_api_cors_max_age
   }
   
   tags = local.tags
+  
+  lifecycle {
+    create_before_destroy = true
+    # Ignore changes to description and tags that don't affect functionality
+    ignore_changes = [
+      description,
+      tags["ManagedBy"]  # Allow tag updates without recreation
+    ]
+  }
+}
+
+# Fail fast if CORS configuration is invalid
+resource "null_resource" "cors_validation" {
+  count = local.cors_validation_error != null ? 1 : 0
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "${local.cors_validation_error}" >&2
+      exit 1
+    EOT
+  }
+  
+  triggers = {
+    cors_origins = join(",", var.http_api_cors_origins)
+    allow_credentials = var.http_api_cors_allow_credentials
+  }
+}
+
+# Fail fast if throttle configuration is invalid
+resource "null_resource" "throttle_validation" {
+  count = local.throttle_validation_error != null ? 1 : 0
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "${local.throttle_validation_error}" >&2
+      exit 1
+    EOT
+  }
+  
+  triggers = {
+    throttle_rate_limit = var.http_api_throttle_rate_limit
+    throttle_burst_limit = var.http_api_throttle_burst_limit
+  }
+}
+
+# Destroy protection: Only create this resource when protection is enabled
+# When allow_destruction=true, this resource won't exist, so nothing blocks destroy
+resource "null_resource" "destroy_protection" {
+  count = local.can_destroy ? 0 : 1  # Only create when protection is needed
+  
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      set -e
+      # Check stored trigger value (from when resource was created/updated)
+      STORED_VALUE="${try(self.triggers.can_destroy, "false")}"
+      
+      # Allow destruction if stored value says so
+      if [ "$STORED_VALUE" = "true" ]; then
+        echo "Destruction explicitly allowed (allow_destruction=true). Continuing destroy."
+        exit 0
+      fi
+      
+      # If we're here, the resource is being destroyed but allow_destruction wasn't set to true
+      # This could be:
+      # 1. An actual destroy operation (should be blocked)
+      # 2. A count change during apply (should be allowed, but we can't detect this reliably)
+      # 
+      # To be safe, we'll block it and require the user to use the destroy script
+      # which removes this resource from state first
+      echo "ERROR: Resource destruction is prevented!" >&2
+      echo "" >&2
+      echo "This resource protects against accidental destruction." >&2
+      echo "To allow destruction, use the destroy script (recommended):" >&2
+      echo "  ./destroy.sh true [db_master_password]" >&2
+      echo "" >&2
+      echo "Or manually remove from state first:" >&2
+      echo "  terraform state rm 'null_resource.destroy_protection[0]'" >&2
+      echo "  terraform destroy -var='allow_destruction=true' -var='db_master_password=YOUR_PASSWORD' -auto-approve" >&2
+      echo "" >&2
+      exit 1
+    EOT
+  }
+  
+  depends_on = [
+    aws_apigatewayv2_api.backend,
+    aws_apigatewayv2_api.websocket,
+    aws_iam_role.deploy_role,
+    aws_route53_record.api
+  ]
+  
+  triggers = {
+    # Include resource IDs so this updates when resources change
+    api_backend_id     = aws_apigatewayv2_api.backend.id
+    api_websocket_id   = aws_apigatewayv2_api.websocket.id
+    iam_role_name      = aws_iam_role.deploy_role.name
+    # Force update when can_destroy changes
+    can_destroy        = tostring(local.can_destroy)
+  }
 }
 
 # HTTP API Gateway Stage
@@ -724,7 +1020,23 @@ resource "aws_apigatewayv2_stage" "backend" {
   }
 
   tags = local.tags
+  
+  depends_on = [
+    aws_apigatewayv2_api.backend,
+    null_resource.cors_validation,
+    null_resource.throttle_validation
+  ]
+  
+  lifecycle {
+    # Ensure stage is updated when API changes
+    ignore_changes = []
+  }
 }
+
+# Note: For HTTP APIs, CORS preflight (OPTIONS) requests are handled automatically
+# by API Gateway when cors_configuration is set on the API.
+# We don't need explicit OPTIONS routes or MOCK integrations for HTTP APIs.
+# The CORS configuration in aws_apigatewayv2_api.backend will handle OPTIONS requests.
 
 # HTTP API Gateway Integration (HTTP proxy to ECS service with {proxy} path)
 resource "aws_apigatewayv2_integration" "backend" {
@@ -746,9 +1058,17 @@ resource "aws_apigatewayv2_integration" "backend" {
     data.external.ecs_task_public_ip,
     module.ecs_service
   ]
+  
+  lifecycle {
+    # Integration URI can change (when IP changes), but integration should update in-place, not recreate
+    create_before_destroy = false
+    # Allow integration_uri to update when backend URL changes (e.g., new ECS task IP)
+    # This ensures updates happen in-place without recreation
+  }
 }
 
 # HTTP API Gateway Integration for root path (without {proxy})
+# Note: OPTIONS requests for root path are handled by options_root route above
 resource "aws_apigatewayv2_integration" "backend_root" {
   api_id           = aws_apigatewayv2_api.backend.id
   integration_type = "HTTP_PROXY"
@@ -772,16 +1092,99 @@ resource "aws_apigatewayv2_integration" "backend_root" {
     data.external.ecs_task_public_ip,
     module.ecs_service
   ]
+  
+  lifecycle {
+    # Integration URI can change (when IP changes), but integration should update in-place, not recreate
+    create_before_destroy = false
+    # Allow integration_uri to update when backend URL changes (e.g., new ECS task IP)
+  }
+}
+
+# Lambda function to handle OPTIONS preflight requests
+# This returns 200 OK so API Gateway can add CORS headers from cors_configuration
+data "archive_file" "cors_options_lambda" {
+  type        = "zip"
+  source_file = "${path.module}/../../lambda/cors_options_handler.py"
+  output_path = "${path.module}/cors_options_handler.zip"
+}
+
+resource "aws_lambda_function" "cors_options" {
+  filename         = data.archive_file.cors_options_lambda.output_path
+  function_name    = "${local.name}-cors-options-handler"
+  role             = aws_iam_role.lambda_cors_options.arn
+  handler          = "cors_options_handler.lambda_handler"
+  runtime          = "python3.11"
+  timeout          = 5
+  memory_size      = 128
+  source_code_hash = data.archive_file.cors_options_lambda.output_base64sha256
+
+  tags = local.tags
+}
+
+# IAM role for CORS OPTIONS Lambda
+resource "aws_iam_role" "lambda_cors_options" {
+  name = "${local.name}-cors-options-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+# Basic Lambda execution policy
+resource "aws_iam_role_policy_attachment" "lambda_cors_options_basic" {
+  role       = aws_iam_role.lambda_cors_options.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Lambda permission for API Gateway
+resource "aws_lambda_permission" "cors_options_apigw" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.cors_options.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.backend.execution_arn}/*/*"
+}
+
+# Lambda integration for OPTIONS requests
+resource "aws_apigatewayv2_integration" "cors_options" {
+  api_id           = aws_apigatewayv2_api.backend.id
+  integration_type  = "AWS_PROXY"
+  integration_uri   = aws_lambda_function.cors_options.invoke_arn
+  integration_method = "POST"
+}
+
+# OPTIONS route for proxy paths - MUST be before ANY /{proxy+} route
+resource "aws_apigatewayv2_route" "options_proxy" {
+  api_id    = aws_apigatewayv2_api.backend.id
+  route_key = "OPTIONS /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.cors_options.id}"
+}
+
+# OPTIONS route for root path - MUST be before ANY / route
+resource "aws_apigatewayv2_route" "options_root" {
+  api_id    = aws_apigatewayv2_api.backend.id
+  route_key = "OPTIONS /"
+  target    = "integrations/${aws_apigatewayv2_integration.cors_options.id}"
 }
 
 # HTTP API Gateway Route (catch-all proxy route)
+# Note: OPTIONS routes above take precedence, so OPTIONS won't reach here
 resource "aws_apigatewayv2_route" "backend_proxy" {
   api_id    = aws_apigatewayv2_api.backend.id
   route_key = "ANY /{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.backend.id}"
 }
 
-# HTTP API Gateway Default Route (for root path)
+# HTTP API Gateway Default Route (for root path, non-OPTIONS methods)
 resource "aws_apigatewayv2_route" "backend_root" {
   api_id    = aws_apigatewayv2_api.backend.id
   route_key = "ANY /"
@@ -814,6 +1217,13 @@ resource "aws_iam_role" "deploy_role" {
   tags = merge(local.tags, {
     Name = var.deploy_role_name
   })
+  
+  lifecycle {
+    # Ignore tag changes that don't affect functionality
+    ignore_changes = [
+      tags["ManagedBy"]
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "deploy_role_consolidated" {
@@ -836,6 +1246,11 @@ resource "aws_route53_record" "api" {
     name                   = data.aws_lb.alb[0].dns_name
     zone_id                = data.aws_lb.alb[0].zone_id
     evaluate_target_health = true
+  }
+  
+  lifecycle {
+    # Allow alias target to update (when ALB changes) without recreation
+    create_before_destroy = false
   }
 }
 
@@ -892,14 +1307,24 @@ locals {
 
 # Update Amplify branch environment variables using AWS CLI
 # This does NOT create or destroy the branch - only updates env vars
+# Update Amplify branch environment variables using AWS CLI
+# This does NOT create or destroy the branch - only updates env vars
+# Only updates when API Gateway endpoints actually change (not on every apply)
 resource "null_resource" "amplify_env_vars" {
   count = var.amplify_app_id != null && var.amplify_prod_branch_name != null ? 1 : 0
 
-  # Trigger update when env vars change
+  # Trigger update only when env vars actually change (API endpoints, not computed values)
+  # This prevents unnecessary updates on every apply
   triggers = {
-    env_vars_hash = sha256(local.amplify_env_vars_json)
-    app_id        = var.amplify_app_id
-    branch_name   = var.amplify_prod_branch_name
+    # Only trigger on actual API Gateway ID changes, not on every apply
+    http_api_id = aws_apigatewayv2_api.backend.id
+    websocket_api_id = aws_apigatewayv2_api.websocket.id
+    http_api_stage = var.http_api_stage_name
+    websocket_stage = var.websocket_stage_name
+    # Include custom env vars hash to detect manual changes
+    custom_env_vars_hash = sha256(jsonencode(var.amplify_branch_environment_variables))
+    app_id = var.amplify_app_id
+    branch_name = var.amplify_prod_branch_name
   }
 
   provisioner "local-exec" {

@@ -141,3 +141,12 @@ deploy_role_name = "shelfshackDeployRole-dev"
 # Set amplify_app_id to manage environment variables for existing Amplify app
 amplify_app_id = "d26vv4xxnh3x3s"
 amplify_dev_branch_name = "develop"
+
+# Resource Protection
+# Set to false when you need to destroy resources (terraform destroy)
+# Set to true (default) to prevent accidental destruction during apply
+# Resource Protection
+# Set allow_destruction=true to enable terraform destroy
+# Set allow_destruction=false (default) to prevent accidental destruction
+# Usage: terraform destroy -var="allow_destruction=true" -var="db_master_password=YOUR_PASSWORD"
+allow_destruction = false  # Set to true to allow destruction

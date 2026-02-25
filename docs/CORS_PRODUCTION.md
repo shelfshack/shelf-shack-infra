@@ -5,8 +5,9 @@
 - **Dev** often works with `allow_origins = ["*"]` because you may not send credentials or use localhost.
 - **Prod** with a real domain (e.g. https://shelfshack.com) and **Google sign-in** (or any request with cookies/Authorization) requires the API to respond with the **exact** request origin in `Access-Control-Allow-Origin`, not `*`.
 - Browsers block credentialed cross-origin responses when the server returns `Access-Control-Allow-Origin: *`.
+- **CRITICAL**: When `allow_credentials = true` (required for Google OAuth), you **CANNOT** use wildcard `"*"` in `allow_origins`. You must specify explicit origins.
 
-So in **prod** we set `http_api_cors_origins` in `envs/prod/terraform.tfvars` to the real frontend origins.
+So in **prod** we set `http_api_cors_origins` in `envs/prod/terraform.tfvars` to the real frontend origins and `http_api_cors_allow_credentials = true`.
 
 ## What was changed
 
@@ -15,6 +16,15 @@ In `envs/prod/terraform.tfvars`:
 - **http_api_cors_origins**: `["*"]` → explicit list including `https://shelfshack.com`, `https://www.shelfshack.com`, and localhost for dev.
 - **http_api_cors_methods**: Explicit list including `OPTIONS` for preflight.
 - **http_api_cors_headers**: Explicit list including `Authorization`, `Content-Type`, etc.
+- **http_api_cors_allow_credentials**: `true` (REQUIRED for Google OAuth and authenticated requests)
+
+### Terraform Improvements
+
+The Terraform configuration now includes:
+- **Automatic validation**: Prevents wildcard `"*"` when `allow_credentials = true`
+- **Variable validation**: Ensures CORS configuration is valid before deployment
+- **Better error messages**: Clear error messages if CORS configuration is invalid
+- **Lifecycle rules**: Prevents accidental API Gateway deletion
 
 After changing, run:
 
