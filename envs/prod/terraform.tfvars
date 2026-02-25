@@ -101,7 +101,7 @@ db_multi_az          = false  # Free Tier: Multi-AZ not available (upgrade accou
 db_backup_retention_days = 1  # Free Tier: Maximum 1 day (upgrade account for more)
 db_skip_final_snapshot   = true  # Set to true to skip snapshot during destroy
 db_final_snapshot_identifier = null  # Auto-generate if skip_final_snapshot is false
-db_deletion_protection   = false  # Set to false for destroy (was true for production)
+db_deletion_protection   = true  # Production: Enable AWS-level deletion protection to prevent accidental deletion
 db_apply_immediately     = false  # Production: Apply during maintenance window
 db_publicly_accessible   = false
 
@@ -145,6 +145,7 @@ http_api_backend_ip = null
 http_api_timeout_milliseconds = 30000
 # CORS: Use explicit origins for production so Google sign-in and credentialed requests work.
 # Wildcard "*" fails when the browser sends credentials (cookies, Authorization) from shelfshack.com.
+# CRITICAL: allow_credentials must be true for Google OAuth and authenticated requests to work.
 http_api_cors_origins = [
   "https://shelfshack.com",
   "https://www.shelfshack.com",
@@ -152,7 +153,8 @@ http_api_cors_origins = [
   "http://localhost:5173"    # Vite dev
 ]
 http_api_cors_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
-http_api_cors_headers = ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"]
+http_api_cors_headers = ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-Requested-Id"]
+http_api_cors_allow_credentials = true  # REQUIRED for Google OAuth - allows cookies and Authorization headers
 http_api_cors_max_age = 300
 http_api_throttle_rate_limit = 100
 http_api_throttle_burst_limit = 50
@@ -172,3 +174,8 @@ deployment_minimum_healthy_percent = 50  # Production: Allow rolling updates
 amplify_app_id = "d26vv4xxnh3x3s"
 amplify_prod_branch_name = "main"
 
+# Resource Protection
+# Set allow_destruction=true to enable terraform destroy
+# Set allow_destruction=false (default) to prevent accidental destruction
+# Usage: terraform destroy -var="allow_destruction=true" -var="db_master_password=YOUR_PASSWORD"
+allow_destruction = false  # Set to true to allow destruction

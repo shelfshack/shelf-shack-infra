@@ -188,3 +188,31 @@ output "amplify_dev_branch_environment_variables" {
   description = "Environment variables configured for Amplify development branch"
   value       = var.amplify_app_id != null && var.amplify_dev_branch_name != null ? local.amplify_env_vars : null
 }
+
+# CORS Configuration Outputs (for debugging)
+output "cors_configuration" {
+  description = "CORS configuration details for debugging"
+  value = {
+    allow_origins     = var.http_api_cors_origins
+    allow_methods     = var.http_api_cors_methods
+    allow_headers     = var.http_api_cors_headers
+    allow_credentials = var.http_api_cors_allow_credentials
+    max_age           = var.http_api_cors_max_age
+    validation_passed = local.cors_validation_error == null
+    validation_error   = local.cors_validation_error
+  }
+  sensitive = false
+}
+
+# Health Check Status
+output "ecs_service_health" {
+  description = "ECS service health information"
+  value = {
+    cluster_name        = module.ecs_service.cluster_name
+    service_name        = module.ecs_service.service_name
+    desired_count      = var.desired_count
+    load_balancer_enabled = var.enable_load_balancer
+    public_ip_available = !var.enable_load_balancer && local.ecs_public_ip != null
+    backend_url         = local.backend_url
+  }
+}
