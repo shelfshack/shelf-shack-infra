@@ -15,7 +15,7 @@ bastion_allow_ssh_cidr_blocks = []
 
 container_image_tag = "latest"
 container_port      = 8000
-desired_count       = 1  # Production: Starting with 1 task, scale up as needed
+desired_count       = 2  # Phase 4: two tasks so a deploy or crash is not an outage
 # Production: More CPU and memory for better performance
 cpu                 = 2048   # Production: More CPU
 memory              = 4096   # Production: More memory
@@ -114,8 +114,8 @@ db_master_username  = "dbadmin_shelfshack"
 # db_master_password_secret_arn = "arn:aws:secretsmanager:us-east-1:397562346696:secret:shelfshack/prod/db-password-XXXXXX"
 db_allocated_storage = 20  # Free Tier: Maximum 20 GB (upgrade account for more)
 db_engine_version    = "17.6"
-db_multi_az          = false  # Free Tier: Multi-AZ not available (upgrade account to enable)
-db_backup_retention_days = 1  # Free Tier: Maximum 1 day (upgrade account for more)
+db_multi_az          = false  # TODO Phase 4: enable once the account is off Free Tier - single-AZ is a standing availability risk
+db_backup_retention_days = 7  # Phase 4: a bad day must not lose more than a point-in-time restore can recover
 db_skip_final_snapshot   = true  # Set to true to skip snapshot during destroy
 db_final_snapshot_identifier = null  # Auto-generate if skip_final_snapshot is false
 db_deletion_protection   = true  # Production: Enable AWS-level deletion protection to prevent accidental deletion

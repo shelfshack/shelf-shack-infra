@@ -540,6 +540,13 @@ resource "aws_ecs_service" "this" {
   deployment_maximum_percent         = var.deployment_maximum_percent
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
 
+  # Roll back automatically instead of crash-looping when a bad image ships
+  # (Phase 4: be able to survive production).
+  deployment_circuit_breaker {
+    enable   = var.enable_deployment_circuit_breaker
+    rollback = var.enable_deployment_circuit_breaker
+  }
+
   enable_execute_command = var.enable_execute_command
 
   network_configuration {
