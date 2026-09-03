@@ -50,6 +50,12 @@ app_secrets = [
     name       = "DATABASE_URL"
     value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:dev/shelfshack/backend_secrets-X5iN9N:DATABASE_URL::"
   },
+  # Required in every environment: the backend refuses to start without a JWT
+  # signing key of at least 32 characters.
+  {
+    name       = "SECRET_KEY"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:dev/shelfshack/backend_secrets-X5iN9N:SECRET_KEY::"
+  },
   {
     name       = "GOOGLE_CLIENT_ID"
     value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:dev/shelfshack/backend_secrets-X5iN9N:GOOGLE_CLIENT_ID::"

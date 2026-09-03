@@ -39,7 +39,12 @@ app_environment = {
   S3_ITEM_PREFIX="item_images"
   S3_USE_PATH_STYLE="false"
   ACCESS_TOKEN_EXPIRE_MINUTES=30
-  
+
+  # Explicit browser origins allowed to call the API with credentials.
+  # The backend refuses to start in production when this is unset, because the
+  # previous fallback accepted any https://*.amplifyapp.com deployment.
+  CORS_ALLOW_ORIGINS="https://main.d26vv4xxnh3x3s.amplifyapp.com,https://shelfshack.com,https://www.shelfshack.com"
+
   # Note: WebSocket notification broadcasting variables (CONNECTIONS_TABLE, WEBSOCKET_API_ENDPOINT, AWS_REGION)
   # are automatically set in main.tf from the websocket_lambda module and API Gateway resources.
   # You don't need to set them here in terraform.tfvars.
@@ -51,6 +56,18 @@ app_secrets = [
   {
     name       = "DATABASE_URL"
     value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:DATABASE_URL::"
+  },
+  # JWT signing key. Previously unset, which left the backend signing tokens with
+  # an empty key; it now refuses to start without one.
+  {
+    name       = "SECRET_KEY"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:SECRET_KEY::"
+  },
+  # Fernet key for chat message ciphertext. Previously derived from SECRET_KEY,
+  # which tied message history to the JWT key and blocked rotating it.
+  {
+    name       = "CHAT_ENCRYPTION_KEY"
+    value_from = "arn:aws:secretsmanager:us-east-1:397562346696:secret:prod/shelfshack/backend_secrets-XwsTaO:CHAT_ENCRYPTION_KEY::"
   },
   {
     name       = "GOOGLE_CLIENT_ID"
