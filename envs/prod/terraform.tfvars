@@ -15,7 +15,7 @@ bastion_allow_ssh_cidr_blocks = []
 
 container_image_tag = "latest"
 container_port      = 8000
-desired_count       = 2  # Phase 4: two tasks so a deploy or crash is not an outage
+desired_count       = 1  # Beta: 1 task. A 2nd task adds ~$76/mo and takes no traffic without an ALB; revisit with enable_load_balancer
 # Production: More CPU and memory for better performance
 cpu                 = 2048   # Production: More CPU
 memory              = 4096   # Production: More memory
