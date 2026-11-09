@@ -1348,3 +1348,18 @@ resource "null_resource" "amplify_env_vars" {
   ]
 }
 
+
+# ============================================================================
+# Monitoring: SNS alerts + CloudWatch alarms (Phase 4 - see the Restart Brief)
+# ============================================================================
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  app_name               = local.name
+  alert_email            = var.alert_email
+  ecs_cluster_name       = module.ecs_service.cluster_name
+  ecs_service_name       = module.ecs_service.service_name
+  db_instance_identifier = module.rds.db_identifier
+  alb_arn_suffix         = module.ecs_service.alb_arn_suffix
+  tags                   = local.tags
+}

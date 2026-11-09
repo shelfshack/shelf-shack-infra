@@ -16,3 +16,7 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Never commit plan files - they can embed secrets and drift instantly
+*.tfplan
+tfplan

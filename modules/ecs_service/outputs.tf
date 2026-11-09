@@ -67,3 +67,8 @@ output "task_role_arn" {
   description = "ARN of the ECS task IAM role"
   value       = aws_iam_role.task.arn
 }
+
+output "alb_arn_suffix" {
+  description = "ARN suffix of the ALB, for CloudWatch metric dimensions."
+  value       = var.enable_load_balancer ? aws_lb.this[0].arn_suffix : null
+}

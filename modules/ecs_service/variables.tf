@@ -197,3 +197,9 @@ variable "websocket_connections_table_name" {
   type        = string
   default     = null
 }
+
+variable "enable_deployment_circuit_breaker" {
+  description = "Automatically roll back a deployment whose tasks fail to reach steady state."
+  type        = bool
+  default     = true
+}

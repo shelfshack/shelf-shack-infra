@@ -670,3 +670,9 @@ variable "amplify_branch_environment_variables" {
   type        = map(string)
   default     = {}
 }
+
+variable "alert_email" {
+  description = "Email subscribed to CloudWatch alarm notifications. Empty skips the subscription."
+  type        = string
+  default     = ""
+}
